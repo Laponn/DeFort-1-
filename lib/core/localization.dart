@@ -170,6 +170,27 @@ class AppLoc {
     'Batal': {'en': 'Cancel', 'id': 'Batal'},
     'Anda telah membuka menu ': {'en': 'You opened the menu ', 'id': 'Anda telah membuka menu '},
     '. Halaman ini masih dalam tahap purwarupa.': {'en': '. This page is still a prototype.', 'id': '. Halaman ini masih dalam tahap purwarupa.'},
+    
+    // Notifications & Extra Pages
+    'Notifikasi': {'en': 'Notifications', 'id': 'Notifikasi'},
+    'Terima peringatan ancaman instan': {'en': 'Receive instant threat alerts', 'id': 'Terima peringatan ancaman instan'},
+    'Status': {'en': 'Status', 'id': 'Status'},
+    'Aktif Terverifikasi': {'en': 'Active & Verified', 'id': 'Aktif Terverifikasi'},
+    'Kode Lisensi': {'en': 'License Code', 'id': 'Kode Lisensi'},
+    'Masa Berlaku': {'en': 'Valid Until', 'id': 'Masa Berlaku'},
+    'Lisensi ini mengaktifkan mesin Antivirus, perlindungan Anti-Phishing real-time, dan pemeriksaan keamanan jaringan melalui Kaspersky Security Network (KSN).': {'en': 'This license enables the Antivirus engine, real-time Anti-Phishing protection, and network security checks via Kaspersky Security Network (KSN).', 'id': 'Lisensi ini mengaktifkan mesin Antivirus, perlindungan Anti-Phishing real-time, dan pemeriksaan keamanan jaringan melalui Kaspersky Security Network (KSN).'},
+    'Pusat Bantuan (FAQ)': {'en': 'Help Center (FAQ)', 'id': 'Pusat Bantuan (FAQ)'},
+    'Apa itu DeFort Security?': {'en': 'What is DeFort Security?', 'id': 'Apa itu DeFort Security?'},
+    'DeFort adalah aplikasi keamanan seluler yang didukung oleh Kaspersky SDK untuk melindungi perangkat Anda dari malware, phishing, dan ancaman jaringan.': {'en': 'DeFort is a mobile security app powered by Kaspersky SDK to protect your device from malware, phishing, and network threats.', 'id': 'DeFort adalah aplikasi keamanan seluler yang didukung oleh Kaspersky SDK untuk melindungi perangkat Anda dari malware, phishing, dan ancaman jaringan.'},
+    'Bagaimana cara memindai virus?': {'en': 'How do I scan for viruses?', 'id': 'Bagaimana cara memindai virus?'},
+    'Buka tab "Pindai" di menu bawah, lalu pilih Pindai Cepat, Pindai Penuh, atau Pindai Folder. Pemindaian akan berjalan secara lokal di perangkat Anda.': {'en': 'Open the "Scan" tab in the bottom menu, then choose Quick Scan, Full Scan, or Folder Scan. Scans will run locally on your device.', 'id': 'Buka tab "Pindai" di menu bawah, lalu pilih Pindai Cepat, Pindai Penuh, atau Pindai Folder. Pemindaian akan berjalan secara lokal di perangkat Anda.'},
+    'Apakah data saya aman?': {'en': 'Is my data safe?', 'id': 'Apakah data saya aman?'},
+    'Ya, DeFort Security tidak membagikan data pribadi Anda. Pengecekan URL dan jaringan dilakukan secara anonim melalui Kaspersky Security Network (KSN).': {'en': 'Yes, DeFort Security does not share your personal data. URL and network checks are done anonymously via Kaspersky Security Network (KSN).', 'id': 'Ya, DeFort Security tidak membagikan data pribadi Anda. Pengecekan URL dan jaringan dilakukan secara anonim melalui Kaspersky Security Network (KSN).'},
+    'Apa keuntungan DeFort Premium?': {'en': 'What are the benefits of DeFort Premium?', 'id': 'Apa keuntungan DeFort Premium?'},
+    'Premium membuka fitur lanjutan seperti VPN tanpa batas, perlindungan anti-phishing real-time, dan prioritas pembaruan database virus.': {'en': 'Premium unlocks advanced features such as unlimited VPN, real-time anti-phishing protection, and priority virus database updates.', 'id': 'Premium membuka fitur lanjutan seperti VPN tanpa batas, perlindungan anti-phishing real-time, dan prioritas pembaruan database virus.'},
+    'Bagaimana cara mengubah kata sandi?': {'en': 'How do I change my password?', 'id': 'Bagaimana cara mengubah kata sandi?'},
+    'Buka "Akun Saya" di menu Pengaturan, lalu pilih "Ubah Kata Sandi". Anda juga dapat mengaktifkan Autentikasi 2-Faktor di sana.': {'en': 'Open "My Account" in the Settings menu, then select "Change Password". You can also enable Two-Factor Authentication there.', 'id': 'Buka "Akun Saya" di menu Pengaturan, lalu pilih "Ubah Kata Sandi". Anda juga dapat mengaktifkan Autentikasi 2-Faktor di sana.'},
+    'DeFort Security adalah aplikasi perlindungan perangkat komprehensif yang dirancang untuk memberikan keamanan maksimal terhadap malware, phishing, dan ancaman cyber lainnya.': {'en': 'DeFort Security is a comprehensive device protection app designed to provide maximum security against malware, phishing, and other cyber threats.', 'id': 'DeFort Security adalah aplikasi perlindungan perangkat komprehensif yang dirancang untuk memberikan keamanan maksimal terhadap malware, phishing, dan ancaman cyber lainnya.'},
   };
 
   static String tr(BuildContext context, String key) {

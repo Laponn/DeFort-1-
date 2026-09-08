@@ -32,6 +32,7 @@ class AppState extends ChangeNotifier {
   bool isPremium = false;
   String language = 'id';
   bool isDarkMode = false;
+  bool isNotificationEnabled = true;
   
   // User Profile
   String userName = 'User Simulator';
@@ -54,6 +55,7 @@ class AppState extends ChangeNotifier {
     isPremium = prefs.getBool('isPremium') ?? false;
     language = prefs.getString('language') ?? 'id';
     isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    isNotificationEnabled = prefs.getBool('isNotificationEnabled') ?? true;
     notifyListeners();
   }
 
@@ -90,6 +92,12 @@ class AppState extends ChangeNotifier {
     await prefs.setBool('isDarkMode', isDarkMode);
     notifyListeners();
   }
+  
+  Future<void> toggleNotifications() async {
+    isNotificationEnabled = !isNotificationEnabled;
+    await prefs.setBool('isNotificationEnabled', isNotificationEnabled);
+    notifyListeners();
+  }
 
   void toggleSetting(String key) {
     switch (key) {
@@ -122,6 +130,7 @@ class DeFortSecurityApp extends StatelessWidget {
     final appState = context.watch<AppState>();
 
     return MaterialApp(
+      key: ValueKey(appState.language),
       title: 'DeFort Security',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

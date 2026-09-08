@@ -31,35 +31,35 @@ class MenuTab extends StatelessWidget {
                 Text(AppLoc.tr(context, 'Pengaturan'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: textColor)),
                 const SizedBox(height: 32),
                 
-                Consumer<AppState>(
-                  builder: (context, appState, _) {
-                    return _buildGlassCard(
-                      context,
-                      child: Column(
-                        children: [
-                          _buildMenuTile(context, LucideIcons.user, 'Akun Saya', 'Kelola profil & data Anda', isAccount: true),
-                          Divider(color: textColor.withOpacity(0.1), height: 24),
-                          _buildMenuTile(context, LucideIcons.crown, 'DeFort Premium', appState.isPremium ? 'Status: Aktif' : 'Tingkatkan untuk perlindungan ekstra', isPremium: true),
-                          Divider(color: textColor.withOpacity(0.1), height: 24),
-                          _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027'),
-                          Divider(color: textColor.withOpacity(0.1), height: 24),
-                          _buildMenuTile(context, LucideIcons.settings, 'Preferensi', 'Bahasa, Tema, Notifikasi', isPreferences: true),
-                        ],
-                      ),
-                    );
-                  }
-                ),
-                const SizedBox(height: 24),
-                _buildGlassCard(
-                  context,
-                  child: Column(
-                    children: [
-                      _buildMenuTile(context, LucideIcons.helpCircle, 'Pusat Bantuan', 'FAQ dan dukungan pelanggan'),
-                      Divider(color: textColor.withOpacity(0.1), height: 24),
-                      _buildMenuTile(context, LucideIcons.info, 'Tentang DeFort', 'Versi 1.0.0 (Powered by Kaspersky)'),
-                    ],
+                  Consumer<AppState>(
+                    builder: (context, appState, _) {
+                      return _buildGlassCard(
+                        context,
+                        child: Column(
+                          children: [
+                            _buildMenuTile(context, LucideIcons.user, 'Akun Saya', 'Kelola profil & data Anda', isAccount: true),
+                            Divider(color: textColor.withOpacity(0.1), height: 24),
+                            _buildMenuTile(context, LucideIcons.crown, 'DeFort Premium', appState.isPremium ? 'Status: Aktif' : 'Tingkatkan untuk perlindungan ekstra', isPremium: true),
+                            Divider(color: textColor.withOpacity(0.1), height: 24),
+                            _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027', isLicense: true),
+                            Divider(color: textColor.withOpacity(0.1), height: 24),
+                            _buildMenuTile(context, LucideIcons.settings, 'Preferensi', 'Bahasa, Tema, Notifikasi', isPreferences: true),
+                          ],
+                        ),
+                      );
+                    }
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  _buildGlassCard(
+                    context,
+                    child: Column(
+                      children: [
+                        _buildMenuTile(context, LucideIcons.helpCircle, 'Pusat Bantuan', 'FAQ dan dukungan pelanggan', isHelp: true),
+                        Divider(color: textColor.withOpacity(0.1), height: 24),
+                        _buildMenuTile(context, LucideIcons.info, 'Tentang DeFort', 'Versi 1.0.0 (Powered by Kaspersky)', isAbout: true),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 32),
                 _buildGlassCard(
                   context,
@@ -127,6 +127,29 @@ class MenuTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   
+                  // Notifications Toggle
+                  Row(
+                    children: [
+                      Icon(LucideIcons.bellRing, color: textColor),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(AppLoc.tr(context, 'Notifikasi'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
+                            Text(AppLoc.tr(context, 'Terima peringatan ancaman instan'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: appState.isNotificationEnabled,
+                        activeColor: Colors.indigo,
+                        onChanged: (val) => appState.toggleNotifications(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
                   // Language Toggle
                   Row(
                     children: [
@@ -166,7 +189,7 @@ class MenuTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false}) {
+  Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false, bool isLicense = false, bool isHelp = false, bool isAbout = false}) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
@@ -179,6 +202,12 @@ class MenuTab extends StatelessWidget {
            _showPreferencesSheet(context);
         } else if (isPremium) {
            _showPremiumSheet(context);
+        } else if (isLicense) {
+           _showLicenseSheet(context);
+        } else if (isHelp) {
+           _showHelpSheet(context);
+        } else if (isAbout) {
+           _showAboutSheet(context);
         } else if (isDestructive) {
           showDialog(
             context: context,
@@ -207,28 +236,6 @@ class MenuTab extends StatelessWidget {
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                   child: Text(AppLoc.tr(context, 'Keluar')),
-                )
-              ],
-            )
-          );
-        } else {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Row(
-                children: [
-                  Icon(icon, color: Colors.indigo),
-                  const SizedBox(width: 8),
-                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
-                ],
-              ),
-              content: Text(AppLoc.tr(context, 'Anda telah membuka menu ') + AppLoc.tr(context, title) + AppLoc.tr(context, '. Halaman ini masih dalam tahap purwarupa.'), style: TextStyle(color: textColor)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                 )
               ],
             )
@@ -344,6 +351,214 @@ class MenuTab extends StatelessWidget {
               ),
             );
           }
+        );
+      }
+    );
+  }
+
+  void _showLicenseSheet(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: sheetBgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(LucideIcons.shieldCheck, color: Colors.green, size: 28),
+                  const SizedBox(width: 12),
+                  Text(AppLoc.tr(context, 'Lisensi Kaspersky'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.5)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AppLoc.tr(context, 'Status'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                    Text(AppLoc.tr(context, 'Aktif Terverifikasi'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                    const SizedBox(height: 12),
+                    Text(AppLoc.tr(context, 'Kode Lisensi'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                    Text('ZCY92-*****-*****-6TAMN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, fontFamily: 'monospace', color: textColor)),
+                    const SizedBox(height: 12),
+                    Text(AppLoc.tr(context, 'Masa Berlaku'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                    Text('1 Januari 2027', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                AppLoc.tr(context, 'Lisensi ini mengaktifkan mesin Antivirus, perlindungan Anti-Phishing real-time, dan pemeriksaan keamanan jaringan melalui Kaspersky Security Network (KSN).'),
+                style: TextStyle(color: textColor.withOpacity(0.8), height: 1.5),
+              ),
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  void _showHelpSheet(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: sheetBgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(LucideIcons.helpCircle, color: Colors.indigo, size: 28),
+                  const SizedBox(width: 12),
+                  Text(AppLoc.tr(context, 'Pusat Bantuan (FAQ)'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: ListView(
+                  children: [
+                    _buildFaqItem(context, 'Apa itu DeFort Security?', 'DeFort adalah aplikasi keamanan seluler yang didukung oleh Kaspersky SDK untuk melindungi perangkat Anda dari malware, phishing, dan ancaman jaringan.', textColor, isDark),
+                    _buildFaqItem(context, 'Bagaimana cara memindai virus?', 'Buka tab "Pindai" di menu bawah, lalu pilih Pindai Cepat, Pindai Penuh, atau Pindai Folder. Pemindaian akan berjalan secara lokal di perangkat Anda.', textColor, isDark),
+                    _buildFaqItem(context, 'Apakah data saya aman?', 'Ya, DeFort Security tidak membagikan data pribadi Anda. Pengecekan URL dan jaringan dilakukan secara anonim melalui Kaspersky Security Network (KSN).', textColor, isDark),
+                    _buildFaqItem(context, 'Apa keuntungan DeFort Premium?', 'Premium membuka fitur lanjutan seperti VPN tanpa batas, perlindungan anti-phishing real-time, dan prioritas pembaruan database virus.', textColor, isDark),
+                    _buildFaqItem(context, 'Bagaimana cara mengubah kata sandi?', 'Buka "Akun Saya" di menu Pengaturan, lalu pilih "Ubah Kata Sandi". Anda juga dapat mengaktifkan Autentikasi 2-Faktor di sana.', textColor, isDark),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildFaqItem(BuildContext context, String question, String answer, Color textColor, bool isDark) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        title: Text(AppLoc.tr(context, question), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+        iconColor: Colors.indigo,
+        collapsedIconColor: textColor.withOpacity(0.5),
+        childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+        children: [
+          Text(AppLoc.tr(context, answer), style: TextStyle(color: textColor.withOpacity(0.7), height: 1.5)),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutSheet(BuildContext context) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: sheetBgColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(LucideIcons.shield, size: 64, color: Colors.indigo),
+              ),
+              const SizedBox(height: 24),
+              Text('DeFort Security', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor)),
+              const SizedBox(height: 8),
+              Text('Versi 1.0.0', style: TextStyle(color: textColor.withOpacity(0.6))),
+              const SizedBox(height: 24),
+              Text(
+                AppLoc.tr(context, 'DeFort Security adalah aplikasi perlindungan perangkat komprehensif yang dirancang untuk memberikan keamanan maksimal terhadap malware, phishing, dan ancaman cyber lainnya.'),
+                textAlign: TextAlign.center,
+                style: TextStyle(color: textColor.withOpacity(0.8), height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey[800] : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(LucideIcons.shieldCheck, size: 16, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text('Powered by Kaspersky SDK', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text('© 2026 DeFort Inc. All rights reserved.', style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.5))),
+              const SizedBox(height: 24),
+            ],
+          ),
         );
       }
     );

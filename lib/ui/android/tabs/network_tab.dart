@@ -28,20 +28,25 @@ class _NetworkTabState extends State<NetworkTab> {
       _sslStatus = 'Memeriksa...';
     });
 
-    final isWifiSafe = await KasperskyChannel.checkWifiSecurity('current_bssid');
-    final isDnsSafe = await KasperskyChannel.checkDns('google.com');
-    final isSslSafe = await KasperskyChannel.validateSsl('https://google.com');
+    final wifiResult = await KasperskyChannel.checkWifiSecurity('current_bssid');
+    final dnsResult = await KasperskyChannel.checkDns('google.com');
+    final sslResult = await KasperskyChannel.validateSsl('https://google.com');
     final urlCheck = await KasperskyChannel.checkUrlPhishing('https://current-gateway.local');
 
     setState(() {
       _isChecking = false;
+      
+      bool isWifiSafe = wifiResult['isSafe'] ?? true;
       _wifiStatus = isWifiSafe ? 'Aman (Enkripsi WPA)' : 'Berisiko / Terbuka';
+      
+      bool isDnsSafe = dnsResult['isSafe'] ?? true;
       _dnsStatus = isDnsSafe ? 'Aman (Tidak ada Spoofing)' : 'DNS Tidak Aman';
       
       bool isUrlSafe = urlCheck['isSafe'] ?? false;
       _urlStatus = isUrlSafe ? 'Aman (Tidak ada Phishing)' : 'Berbahaya';
       
-      _sslStatus = isSslSafe ? 'Sertifikat Valid' : 'Sertifikat Invalid';
+      bool isSslValid = sslResult['isValid'] ?? true;
+      _sslStatus = isSslValid ? 'Sertifikat Valid' : 'Sertifikat Invalid';
     });
   }
 

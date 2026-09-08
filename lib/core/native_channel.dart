@@ -4,12 +4,12 @@ class KasperskyChannel {
   static const MethodChannel _channel = MethodChannel('com.defort/native_sdk');
 
   /// Inisialisasi SDK di Native (License Check)
-  static Future<bool> initSdk() async {
+  static Future<Map<String, dynamic>> initSdk() async {
     try {
       final result = await _channel.invokeMethod('initializeSdk');
-      return result as bool;
+      return Map<String, dynamic>.from(result);
     } catch (e) {
-      return false;
+      return {'isReady': false, 'error': e.toString()};
     }
   }
 
@@ -31,7 +31,7 @@ class KasperskyChannel {
   // 2. ANTI-PHISHING & FAKE APPS
   // ==========================================
   
-  /// Pengecekan Keamanan Jaringan / URL
+  /// Pengecekan Keamanan URL via Kaspersky KSN Cloud
   static Future<Map<String, dynamic>> checkUrlPhishing(String url) async {
     try {
       final result = await _channel.invokeMethod('checkUrlPhishing', {'url': url});
@@ -56,35 +56,32 @@ class KasperskyChannel {
   // ==========================================
   
   /// Cek Keamanan Wi-Fi
-  static Future<bool> checkWifiSecurity(String bssid) async {
+  static Future<Map<String, dynamic>> checkWifiSecurity(String bssid) async {
     try {
       final result = await _channel.invokeMethod('checkWifiSecurity', {'bssid': bssid});
-      if (result is Map) {
-        return result['isSafe'] as bool? ?? false;
-      }
-      return false;
+      return Map<String, dynamic>.from(result);
     } catch (e) {
-      return false;
+      return {'isSafe': false, 'error': e.toString()};
     }
   }
 
   /// Cek Integritas DNS
-  static Future<bool> checkDns(String domain) async {
+  static Future<Map<String, dynamic>> checkDns(String domain) async {
     try {
       final result = await _channel.invokeMethod('checkDns', {'domain': domain});
-      return result as bool;
+      return Map<String, dynamic>.from(result);
     } catch (e) {
-      return false;
+      return {'isSafe': false, 'error': e.toString()};
     }
   }
 
   /// Validasi Sertifikat SSL
-  static Future<bool> validateSsl(String url) async {
+  static Future<Map<String, dynamic>> validateSsl(String url) async {
     try {
       final result = await _channel.invokeMethod('validateSsl', {'url': url});
-      return result as bool;
+      return Map<String, dynamic>.from(result);
     } catch (e) {
-      return false;
+      return {'isValid': false, 'error': e.toString()};
     }
   }
 }
