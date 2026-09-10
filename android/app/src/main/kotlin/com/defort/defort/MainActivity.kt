@@ -65,15 +65,7 @@ class MainActivity : FlutterActivity() {
                         try {
                             val av = antivirusComponent
                             if (av == null) {
-                                Thread.sleep(2000)
-                                val response = mapOf(
-                                    "isDeviceRooted" to false,
-                                    "malwareCount" to 0,
-                                    "filesScanned" to 1245,
-                                    "malwareList" to emptyList<String>(),
-                                    "isRealSdk" to false
-                                )
-                                runOnUiThread { result.success(response) }
+                                runOnUiThread { result.error("AV_NOT_INIT", "Antivirus component is not initialized", null) }
                                 return@thread
                             }
 
@@ -110,15 +102,52 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(response) }
                         } catch (e: Exception) {
                             Log.e("DeFort", "EasyScan error: ${e.message}")
+                            runOnUiThread { result.error("SCAN_ERROR", e.message, null) }
+                        }
+                    }
+                }
+
+                "scanFolder" -> {
+                    val path = call.argument<String>("path") ?: ""
+                    thread {
+                        try {
+                            val av = antivirusComponent
+                            if (av == null) {
+                                runOnUiThread { result.error("AV_NOT_INIT", "Antivirus component is not initialized", null) }
+                                return@thread
+                            }
+                            
+                            val scanner = av.createScanner()
+                            val malwareList = mutableListOf<String>()
+                            var filesScanned = 0
+
+                            val listener = object : com.kavsdk.antivirus.ScannerEventListener {
+                                override fun onScanEvent(eventId: Int, res: Int, threat: ThreatInfo?, threatType: com.kavsdk.antivirus.ThreatType?): Int {
+                                    if (eventId == com.kavsdk.antivirus.ScannerConstants.EVENT_DETECT && threat != null) {
+                                        malwareList.add(threat.virusName ?: "Unknown Threat")
+                                    } else if (eventId == com.kavsdk.antivirus.ScannerConstants.EVENT_OBJECT_RESULT) {
+                                        filesScanned++
+                                    }
+                                    return com.kavsdk.antivirus.ScannerConstants.EVENT_RESULT_OK
+                                }
+                            }
+
+                            val scanMode = com.kavsdk.antivirus.ScannerConstants.SCAN_MODE_ALLOW_UDS or com.kavsdk.antivirus.ScannerConstants.SCAN_MODE_DETECT_RISKWARE_ADWARE
+                            val cleanMode = com.kavsdk.antivirus.ScannerConstants.CLEAN_MODE_DONOTCLEAN
+                            
+                            scanner.scanFolder(path, scanMode, cleanMode, listener, null, false)
+                            
                             val response = mapOf(
                                 "isDeviceRooted" to false,
-                                "malwareCount" to 0,
-                                "filesScanned" to 1245,
-                                "malwareList" to emptyList<String>(),
-                                "isRealSdk" to false,
-                                "error_detail" to (e.message ?: "Unknown error")
+                                "malwareCount" to malwareList.size,
+                                "filesScanned" to filesScanned,
+                                "malwareList" to malwareList,
+                                "isRealSdk" to true
                             )
                             runOnUiThread { result.success(response) }
+                        } catch (e: Exception) {
+                            Log.e("DeFort", "Folder scan error: ${e.message}")
+                            runOnUiThread { result.error("SCAN_ERROR", e.message, null) }
                         }
                     }
                 }
@@ -152,15 +181,7 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(response) }
                         } catch (e: Exception) {
                             Log.e("DeFort", "URL check error: ${e.message}")
-                            val isSafe = !url.contains("phishing") && !url.contains("malware")
-                            val categories = if (isSafe) listOf("SAFE") else listOf("PHISHING", "MALWARE")
-                            val response = mapOf(
-                                "isSafe" to isSafe,
-                                "categories" to categories,
-                                "isRealSdk" to false,
-                                "error_detail" to (e.message ?: "Unknown error")
-                            )
-                            runOnUiThread { result.success(response) }
+                            runOnUiThread { result.error("URL_CHECK_ERROR", e.message, null) }
                         }
                     }
                 }
@@ -181,7 +202,7 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(mapOf("isSafe" to isSafe, "isRealSdk" to true)) }
                         } catch (e: Exception) {
                             Log.e("DeFort", "WiFi check error: ${e.message}")
-                            runOnUiThread { result.success(mapOf("isSafe" to true, "isRealSdk" to false)) }
+                            runOnUiThread { result.error("WIFI_CHECK_ERROR", e.message, null) }
                         }
                     }
                 }
@@ -196,7 +217,7 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(mapOf("isSafe" to isSafe, "isRealSdk" to true)) }
                         } catch (e: Exception) {
                             Log.e("DeFort", "DNS check error: ${e.message}")
-                            runOnUiThread { result.success(mapOf("isSafe" to true, "isRealSdk" to false)) }
+                            runOnUiThread { result.error("DNS_CHECK_ERROR", e.message, null) }
                         }
                     }
                 }
@@ -211,13 +232,37 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(mapOf("isValid" to isValid, "isRealSdk" to true)) }
                         } catch (e: Exception) {
                             Log.e("DeFort", "SSL check error: ${e.message}")
-                            runOnUiThread { result.success(mapOf("isValid" to true, "isRealSdk" to false)) }
+                            runOnUiThread { result.error("SSL_CHECK_ERROR", e.message, null) }
                         }
                     }
                 }
                 
                 "toggleWebFilterVpn" -> {
                     result.success(true)
+                }
+                
+                "getNetworkName" -> {
+                    try {
+                        val connManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        val activeNetwork = connManager.activeNetworkInfo
+                        if (activeNetwork != null && activeNetwork.isConnected) {
+                            if (activeNetwork.type == android.net.ConnectivityManager.TYPE_WIFI) {
+                                val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+                                val ssid = wifiManager.connectionInfo.ssid
+                                if (ssid == null || ssid == "<unknown ssid>") {
+                                    result.success("Wi-Fi Terhubung")
+                                } else {
+                                    result.success(ssid.trim('"'))
+                                }
+                            } else {
+                                result.success("Data Seluler")
+                            }
+                        } else {
+                            result.success("Tidak Terhubung")
+                        }
+                    } catch (e: Exception) {
+                        result.success("Tidak Terhubung")
+                    }
                 }
                 
                 else -> {

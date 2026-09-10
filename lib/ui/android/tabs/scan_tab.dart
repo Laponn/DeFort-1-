@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
 
@@ -15,52 +16,20 @@ class _ScanTabState extends State<ScanTab> {
   bool _isScanning = false;
   
   void _runScan(String type) async {
+    String? selectedFolder;
     if (type == 'Folder') {
-      // Tampilkan "Folder Picker" tiruan
-      String? selectedFolder = await showDialog<String>(
-        context: context,
-        builder: (context) {
-          bool isDark = Theme.of(context).brightness == Brightness.dark;
-          return AlertDialog(
-            backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-            title: Text(AppLoc.tr(context, 'Pilih direktori spesifik untuk diperiksa'), style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(LucideIcons.folder, color: Colors.blue),
-                  title: const Text('/Downloads'),
-                  onTap: () => Navigator.pop(context, '/Downloads'),
-                ),
-                ListTile(
-                  leading: const Icon(LucideIcons.folder, color: Colors.blue),
-                  title: const Text('/Documents'),
-                  onTap: () => Navigator.pop(context, '/Documents'),
-                ),
-                ListTile(
-                  leading: const Icon(LucideIcons.folder, color: Colors.blue),
-                  title: const Text('/Images'),
-                  onTap: () => Navigator.pop(context, '/Images'),
-                ),
-              ],
-            ),
-          );
-        },
+      selectedFolder = await FilePicker.getDirectoryPath(
+        dialogTitle: AppLoc.tr(context, 'Pilih direktori spesifik untuk diperiksa'),
       );
-      
-      if (selectedFolder == null) return; // Dibatalkan oleh user
+      if (selectedFolder == null) return;
     }
 
     setState(() => _isScanning = true);
     
-    // Simulate scan API call delay for Full and Folder scan
-    if (type == 'Full') {
-      await Future.delayed(const Duration(seconds: 4));
-    } else if (type == 'Quick') {
-      await KasperskyChannel.scanMalware(); // Memanggil native channel
-    } else {
-      await Future.delayed(const Duration(seconds: 2));
-    }
+    // Call the actual native Kaspersky SDK
+    final result = type == 'Folder' 
+        ? await KasperskyChannel.scanFolder(selectedFolder!)
+        : await KasperskyChannel.scanMalware();
     
     if (!mounted) return;
     setState(() => _isScanning = false);
@@ -68,16 +37,41 @@ class _ScanTabState extends State<ScanTab> {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     
-    String contentText = '';
-    if (type == 'Full') {
-      contentText = AppLoc.tr(context, '34.502 file diperiksa. Perangkat Anda bersih!');
-    } else if (type == 'Quick') {
-      contentText = AppLoc.tr(context, 'file diperiksa. Tidak ada ancaman.');
-      // Untuk quick kita pakai default text
-      contentText = '1.240 ' + contentText;
-    } else {
-      contentText = AppLoc.tr(context, '152 file diperiksa. Aman.');
+    if (result.containsKey('error')) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(
+            children: [
+              const Icon(LucideIcons.alertTriangle, color: Colors.red),
+              const SizedBox(width: 8),
+              Text(AppLoc.tr(context, 'Pemindaian Gagal'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            result['error'].toString(),
+            style: TextStyle(color: textColor),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold))
+            )
+          ],
+        )
+      );
+      return;
     }
+    
+    int filesScanned = result['filesScanned'] ?? 0;
+    int malwareCount = result['malwareCount'] ?? 0;
+    
+    bool hasThreats = malwareCount > 0;
+    String contentText = hasThreats
+      ? '${AppLoc.tr(context, 'Ancaman Ditemukan!')} $malwareCount malware.'
+      : '$filesScanned ${AppLoc.tr(context, 'file diperiksa. Tidak ada ancaman.')}';
     
     showDialog(
       context: context,
@@ -86,7 +80,7 @@ class _ScanTabState extends State<ScanTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Row(
           children: [
-            const Icon(LucideIcons.checkCircle, color: Colors.green),
+            Icon(hasThreats ? LucideIcons.shieldAlert : LucideIcons.checkCircle, color: hasThreats ? Colors.red : Colors.green),
             const SizedBox(width: 8),
             Text(AppLoc.tr(context, 'Pindai Selesai'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           ],

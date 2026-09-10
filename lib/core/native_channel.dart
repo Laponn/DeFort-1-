@@ -27,6 +27,16 @@ class KasperskyChannel {
     }
   }
 
+  /// Mulai Pemindaian Folder Spesifik
+  static Future<Map<String, dynamic>> scanFolder(String path) async {
+    try {
+      final result = await _channel.invokeMethod('scanFolder', {'path': path});
+      return Map<String, dynamic>.from(result);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   // ==========================================
   // 2. ANTI-PHISHING & FAKE APPS
   // ==========================================
@@ -55,6 +65,16 @@ class KasperskyChannel {
   // 3. SECURE CONNECTIVITY
   // ==========================================
   
+  /// Dapatkan nama jaringan saat ini
+  static Future<String> getNetworkName() async {
+    try {
+      final result = await _channel.invokeMethod('getNetworkName');
+      return result.toString();
+    } catch (e) {
+      return 'Tidak Terhubung';
+    }
+  }
+
   /// Cek Keamanan Wi-Fi
   static Future<Map<String, dynamic>> checkWifiSecurity(String bssid) async {
     try {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:ui';
+import 'dart:async';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
 
@@ -13,11 +14,37 @@ class NetworkTab extends StatefulWidget {
 
 class _NetworkTabState extends State<NetworkTab> {
   bool _isChecking = false;
+  String _currentWifiName = 'Mencari...';
+  Timer? _wifiTimer;
   
   String _wifiStatus = 'Belum Diperiksa';
   String _dnsStatus = 'Belum Diperiksa';
   String _urlStatus = 'Belum Diperiksa';
   String _sslStatus = 'Belum Diperiksa';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWifiName();
+    _wifiTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      _fetchWifiName();
+    });
+  }
+
+  @override
+  void dispose() {
+    _wifiTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchWifiName() async {
+    final wifiName = await KasperskyChannel.getNetworkName();
+    if (mounted) {
+      setState(() {
+        _currentWifiName = wifiName;
+      });
+    }
+  }
 
   Future<void> _checkNetworkSecurity() async {
     setState(() {
@@ -36,17 +63,33 @@ class _NetworkTabState extends State<NetworkTab> {
     setState(() {
       _isChecking = false;
       
-      bool isWifiSafe = wifiResult['isSafe'] ?? true;
-      _wifiStatus = isWifiSafe ? 'Aman (Enkripsi WPA)' : 'Berisiko / Terbuka';
+      if (wifiResult.containsKey('error')) {
+        _wifiStatus = 'Gagal (Error SDK)';
+      } else {
+        bool isWifiSafe = wifiResult['isSafe'] ?? false;
+        _wifiStatus = isWifiSafe ? 'Aman (Enkripsi WPA)' : 'Berisiko / Terbuka';
+      }
       
-      bool isDnsSafe = dnsResult['isSafe'] ?? true;
-      _dnsStatus = isDnsSafe ? 'Aman (Tidak ada Spoofing)' : 'DNS Tidak Aman';
+      if (dnsResult.containsKey('error')) {
+        _dnsStatus = 'Gagal (Error SDK)';
+      } else {
+        bool isDnsSafe = dnsResult['isSafe'] ?? false;
+        _dnsStatus = isDnsSafe ? 'Aman (Tidak ada Spoofing)' : 'DNS Tidak Aman';
+      }
       
-      bool isUrlSafe = urlCheck['isSafe'] ?? false;
-      _urlStatus = isUrlSafe ? 'Aman (Tidak ada Phishing)' : 'Berbahaya';
+      if (urlCheck.containsKey('error')) {
+        _urlStatus = 'Gagal (Error SDK)';
+      } else {
+        bool isUrlSafe = urlCheck['isSafe'] ?? false;
+        _urlStatus = isUrlSafe ? 'Aman (Tidak ada Phishing)' : 'Berbahaya';
+      }
       
-      bool isSslValid = sslResult['isValid'] ?? true;
-      _sslStatus = isSslValid ? 'Sertifikat Valid' : 'Sertifikat Invalid';
+      if (sslResult.containsKey('error')) {
+        _sslStatus = 'Gagal (Error SDK)';
+      } else {
+        bool isSslValid = sslResult['isValid'] ?? false;
+        _sslStatus = isSslValid ? 'Sertifikat Valid' : 'Sertifikat Invalid';
+      }
     });
   }
 
@@ -82,7 +125,7 @@ class _NetworkTabState extends State<NetworkTab> {
                       Icon(LucideIcons.wifi, size: 48, color: isDark ? Colors.indigoAccent : Colors.indigo),
                       const SizedBox(height: 16),
                       Text(AppLoc.tr(context, 'Wi-Fi Saat Ini'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
-                      Text('MyHomeNetwork_5G', style: TextStyle(color: subTextColor)),
+                      Text(_currentWifiName, style: TextStyle(color: subTextColor)),
                       const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
