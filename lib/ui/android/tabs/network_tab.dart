@@ -147,13 +147,13 @@ class _NetworkTabState extends State<NetworkTab> {
                 Text(AppLoc.tr(context, 'Hasil Analisis Kaspersky'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
                 const SizedBox(height: 16),
                 
-                _buildResultRow(context, LucideIcons.shieldCheck, 'Reputasi Wi-Fi', _wifiStatus, _wifiStatus.contains('Aman') || _wifiStatus.contains('Safe')),
+                _buildResultRow(context, LucideIcons.shieldCheck, 'Reputasi Wi-Fi', _wifiStatus, _wifiStatus.startsWith('Aman')),
                 const SizedBox(height: 12),
-                _buildResultRow(context, LucideIcons.server, 'Integritas DNS', _dnsStatus, _dnsStatus.contains('Aman') || _dnsStatus.contains('Safe')),
+                _buildResultRow(context, LucideIcons.server, 'Integritas DNS', _dnsStatus, _dnsStatus.startsWith('Aman')),
                 const SizedBox(height: 12),
-                _buildResultRow(context, LucideIcons.search, 'Pemeriksaan URL', _urlStatus, _urlStatus.contains('Aman') || _urlStatus.contains('Safe')),
+                _buildResultRow(context, LucideIcons.search, 'Pemeriksaan URL', _urlStatus, _urlStatus.startsWith('Aman')),
                 const SizedBox(height: 12),
-                _buildResultRow(context, LucideIcons.lock, 'Validasi Sertifikat SSL', _sslStatus, _sslStatus.contains('Valid')),
+                _buildResultRow(context, LucideIcons.lock, 'Validasi Sertifikat SSL', _sslStatus, _sslStatus == 'Sertifikat Valid'),
               ],
             ),
           )

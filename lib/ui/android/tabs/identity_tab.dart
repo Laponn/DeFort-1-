@@ -3,6 +3,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:ui';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
+import 'package:provider/provider.dart';
+import '../../../main.dart';
 
 class IdentityTab extends StatefulWidget {
   const IdentityTab({super.key});
@@ -14,9 +16,6 @@ class IdentityTab extends StatefulWidget {
 class _IdentityTabState extends State<IdentityTab> {
   final TextEditingController _urlController = TextEditingController();
   bool _isCheckingUrl = false;
-  
-  bool _isAntiPhishingActive = true;
-  bool _isFakeAppMonitorActive = false;
 
   void _checkUrl() async {
     if (_urlController.text.isEmpty) return;
@@ -65,20 +64,23 @@ class _IdentityTabState extends State<IdentityTab> {
     }
   }
 
-  void _toggleFakeAppMonitor(bool val) async {
+  void _toggleFakeAppMonitor(bool val, AppState appState) async {
     if (val) {
        bool success = await KasperskyChannel.startFakeAppMonitor();
-       setState(() => _isFakeAppMonitorActive = success);
        if (success) {
-         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLoc.tr(context, 'Pemantauan Aplikasi Palsu Diaktifkan'))));
+         appState.toggleFakeAppMonitor(true);
+         if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLoc.tr(context, 'Pemantauan Aplikasi Palsu Diaktifkan'))));
+         }
        }
     } else {
-       setState(() => _isFakeAppMonitorActive = false);
+       appState.toggleFakeAppMonitor(false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final appState = Provider.of<AppState>(context);
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6);
     final textColor = isDark ? Colors.white : Colors.black87;
@@ -168,8 +170,8 @@ class _IdentityTabState extends State<IdentityTab> {
                   color: isDark ? Colors.lightBlue : Colors.blue, 
                   title: 'Web Filter / Anti-Phishing', 
                   subtitle: 'Memblokir situs penipuan secara otomatis', 
-                  value: _isAntiPhishingActive, 
-                  onChanged: (v) => setState(() => _isAntiPhishingActive = v)
+                  value: appState.isAntiPhishingActive, 
+                  onChanged: (v) => appState.toggleAntiPhishing(v)
                 ),
                 const SizedBox(height: 12),
                 _buildSwitchCard(
@@ -178,8 +180,8 @@ class _IdentityTabState extends State<IdentityTab> {
                   color: isDark ? Colors.purpleAccent : Colors.purple, 
                   title: 'Monitor Aplikasi Palsu', 
                   subtitle: 'Memindai aplikasi yang baru diinstal', 
-                  value: _isFakeAppMonitorActive, 
-                  onChanged: _toggleFakeAppMonitor
+                  value: appState.isFakeAppMonitorActive, 
+                  onChanged: (v) => _toggleFakeAppMonitor(v, appState)
                 ),
               ],
             ),

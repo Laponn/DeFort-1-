@@ -46,6 +46,9 @@ class AppState extends ChangeNotifier {
   bool webFilterVpn = true;
   bool autoUpdate = true;
   bool selfDefense = true;
+  
+  bool isAntiPhishingActive = true;
+  bool isFakeAppMonitorActive = false;
 
   void _loadFromPrefs() {
     userName = prefs.getString('userName') ?? 'User Simulator';
@@ -56,6 +59,8 @@ class AppState extends ChangeNotifier {
     language = prefs.getString('language') ?? 'id';
     isDarkMode = prefs.getBool('isDarkMode') ?? false;
     isNotificationEnabled = prefs.getBool('isNotificationEnabled') ?? true;
+    isAntiPhishingActive = prefs.getBool('isAntiPhishingActive') ?? true;
+    isFakeAppMonitorActive = prefs.getBool('isFakeAppMonitorActive') ?? false;
     notifyListeners();
   }
 
@@ -96,6 +101,18 @@ class AppState extends ChangeNotifier {
   Future<void> toggleNotifications() async {
     isNotificationEnabled = !isNotificationEnabled;
     await prefs.setBool('isNotificationEnabled', isNotificationEnabled);
+    notifyListeners();
+  }
+
+  Future<void> toggleAntiPhishing(bool val) async {
+    isAntiPhishingActive = val;
+    await prefs.setBool('isAntiPhishingActive', val);
+    notifyListeners();
+  }
+
+  Future<void> toggleFakeAppMonitor(bool val) async {
+    isFakeAppMonitorActive = val;
+    await prefs.setBool('isFakeAppMonitorActive', val);
     notifyListeners();
   }
 

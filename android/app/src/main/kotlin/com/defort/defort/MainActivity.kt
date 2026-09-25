@@ -56,6 +56,22 @@ class MainActivity : FlutterActivity() {
                         "licenseError" to licenseError
                     ))
                 }
+
+                "getLicenseInfo" -> {
+                    val license = KavSdk.getLicense()
+                    var expireDateStr = "Tidak diketahui"
+                    if (license.licenseKeyExpireDate != null) {
+                        // Normally it's java.util.Date
+                        val sdf = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale("id", "ID"))
+                        expireDateStr = sdf.format(license.licenseKeyExpireDate)
+                    }
+                    
+                    result.success(mapOf(
+                        "isValid" to license.isValid,
+                        "activationCode" to ACTIVATION_CODE,
+                        "expirationDate" to expireDateStr
+                    ))
+                }
                 
                 // ==========================================
                 // 1. MALWARE DETECTION - Real SDK EasyScanner
@@ -316,8 +332,28 @@ class MainActivity : FlutterActivity() {
                 
                 antivirusComponent = AntivirusInstance.getInstance().also {
                     it.initAntivirus(applicationContext, scanTmpDir.absolutePath, monitorTmpDir.absolutePath)
+                    
+                    // Activate Real-Time File Monitor
+                    it.addDefaultDirectories()
+                    it.setMonitorListener { threat, threatType ->
+                        if (threat != null) {
+                            Log.w("DeFort", "🚨 Real-Time threat detected: ${threat.virusName} at ${threat.fileFullPath}")
+                        }
+                    }
+                    it.setMonitorState(true)
                 }
-                Log.i("DeFort", "✅ Antivirus component initialized")
+                
+                // Activate Real-Time App Installation Monitor
+                val appMonitor = com.kavsdk.antivirus.appmonitor.AppInstallationMonitor(applicationContext)
+                appMonitor.enable(
+                    { threat, type ->
+                        Log.w("DeFort", "🚨 Fake App / Virus installed: ${threat?.virusName}")
+                        false
+                    },
+                    null
+                )
+                
+                Log.i("DeFort", "✅ Antivirus component initialized and Real-Time Protection is ON")
             } catch (e: Exception) {
                 Log.e("DeFort", "❌ Antivirus init failed: ${e.message}")
             }

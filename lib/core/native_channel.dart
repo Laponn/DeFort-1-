@@ -13,6 +13,16 @@ class KasperskyChannel {
     }
   }
 
+  /// Dapatkan Informasi Lisensi
+  static Future<Map<String, dynamic>> getLicenseInfo() async {
+    try {
+      final result = await _channel.invokeMethod('getLicenseInfo');
+      return Map<String, dynamic>.from(result);
+    } catch (e) {
+      return {'isValid': false, 'error': e.toString()};
+    }
+  }
+
   // ==========================================
   // 1. MALWARE DETECTION
   // ==========================================

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/localization.dart';
+import '../../../core/native_channel.dart';
 import '../screens/account_screen.dart';
 import '../screens/login_screen.dart';
 
@@ -41,7 +42,7 @@ class MenuTab extends StatelessWidget {
                             Divider(color: textColor.withOpacity(0.1), height: 24),
                             _buildMenuTile(context, LucideIcons.crown, 'DeFort Premium', appState.isPremium ? 'Status: Aktif' : 'Tingkatkan untuk perlindungan ekstra', isPremium: true),
                             Divider(color: textColor.withOpacity(0.1), height: 24),
-                            _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027', isLicense: true),
+                            _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Lihat detail lisensi SDK', isLicense: true),
                             Divider(color: textColor.withOpacity(0.1), height: 24),
                             _buildMenuTile(context, LucideIcons.settings, 'Preferensi', 'Bahasa, Tema, Notifikasi', isPreferences: true),
                           ],
@@ -391,26 +392,52 @@ class MenuTab extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey[800] : Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.withOpacity(0.5)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(AppLoc.tr(context, 'Status'), style: TextStyle(color: textColor.withOpacity(0.6))),
-                    Text(AppLoc.tr(context, 'Aktif Terverifikasi'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
-                    const SizedBox(height: 12),
-                    Text(AppLoc.tr(context, 'Kode Lisensi'), style: TextStyle(color: textColor.withOpacity(0.6))),
-                    Text('ZCY92-*****-*****-6TAMN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, fontFamily: 'monospace', color: textColor)),
-                    const SizedBox(height: 12),
-                    Text(AppLoc.tr(context, 'Masa Berlaku'), style: TextStyle(color: textColor.withOpacity(0.6))),
-                    Text('1 Januari 2027', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor)),
-                  ],
-                ),
+              FutureBuilder<Map<String, dynamic>>(
+                future: KasperskyChannel.getLicenseInfo(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  
+                  final data = snapshot.data ?? {};
+                  final isValid = data['isValid'] == true;
+                  final statusText = isValid ? 'Aktif Terverifikasi' : 'Tidak Aktif / Error';
+                  final statusColor = isValid ? Colors.green : Colors.red;
+                  final activationCode = data['activationCode'] ?? 'TIDAK-DIKETAHUI';
+                  
+                  // Mask the middle of activation code for security
+                  String maskedCode = activationCode;
+                  if (maskedCode.length > 10 && maskedCode.contains('-')) {
+                    final parts = maskedCode.split('-');
+                    if (parts.length == 4) {
+                       maskedCode = '${parts[0]}-*****-*****-${parts[3]}';
+                    }
+                  }
+                  
+                  final expirationDate = data['expirationDate'] ?? 'Tidak diketahui';
+
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.grey[800] : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusColor.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(AppLoc.tr(context, 'Status'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                        Text(AppLoc.tr(context, statusText), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: statusColor)),
+                        const SizedBox(height: 12),
+                        Text(AppLoc.tr(context, 'Kode Lisensi'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                        Text(maskedCode, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, fontFamily: 'monospace', color: textColor)),
+                        const SizedBox(height: 12),
+                        Text(AppLoc.tr(context, 'Masa Berlaku'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                        Text(expirationDate, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: textColor)),
+                      ],
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
               Text(
