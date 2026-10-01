@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
+import '../../../core/constants.dart';
+import '../../../core/scan_history.dart';
+import '../../../core/permissions.dart';
+import '../../../ui/shared/glass_widgets.dart';
 
 class ScanTab extends StatefulWidget {
   const ScanTab({super.key});
@@ -14,8 +17,34 @@ class ScanTab extends StatefulWidget {
 
 class _ScanTabState extends State<ScanTab> {
   bool _isScanning = false;
-  
+  String _currentScanType = '';
+  List<ScanRecord> _recentScans = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentScans();
+  }
+
+  Future<void> _loadRecentScans() async {
+    final history = await ScanHistoryService.getHistory();
+    if (mounted) {
+      setState(() => _recentScans = history.take(5).toList());
+    }
+  }
+
   void _runScan(String type) async {
+    // Request storage permission first
+    final hasPermission = await PermissionService.requestStoragePermission();
+    if (!hasPermission && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Izin penyimpanan diperlukan untuk memindai perangkat'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+    }
+
     String? selectedFolder;
     if (type == 'Folder') {
       selectedFolder = await FilePicker.getDirectoryPath(
@@ -24,7 +53,10 @@ class _ScanTabState extends State<ScanTab> {
       if (selectedFolder == null) return;
     }
 
-    setState(() => _isScanning = true);
+    setState(() {
+      _isScanning = true;
+      _currentScanType = type;
+    });
     
     // Call the actual native Kaspersky SDK
     final result = type == 'Folder' 
@@ -35,7 +67,7 @@ class _ScanTabState extends State<ScanTab> {
     setState(() => _isScanning = false);
 
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
+    final textColor = AppColors.textPrimary(isDark);
     
     if (result.containsKey('error')) {
       showDialog(
@@ -45,7 +77,7 @@ class _ScanTabState extends State<ScanTab> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Row(
             children: [
-              const Icon(LucideIcons.alertTriangle, color: Colors.red),
+              const Icon(LucideIcons.alertTriangle, color: AppColors.error),
               const SizedBox(width: 8),
               Text(AppLoc.tr(context, 'Pemindaian Gagal'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ],
@@ -67,12 +99,27 @@ class _ScanTabState extends State<ScanTab> {
     
     int filesScanned = result['filesScanned'] ?? 0;
     int malwareCount = result['malwareCount'] ?? 0;
+    List<String> malwareList = List<String>.from(result['malwareList'] ?? []);
+
+    // Save to scan history
+    final record = ScanRecord(
+      type: type.toLowerCase(),
+      timestamp: DateTime.now(),
+      filesScanned: filesScanned,
+      malwareCount: malwareCount,
+      malwareList: malwareCount == 0 ? [] : malwareList,
+      isRealSdk: result['isRealSdk'] == true,
+      folderPath: selectedFolder,
+    );
+    await ScanHistoryService.addRecord(record);
+    _loadRecentScans();
     
     bool hasThreats = malwareCount > 0;
     String contentText = hasThreats
       ? '${AppLoc.tr(context, 'Ancaman Ditemukan!')} $malwareCount malware.'
       : '$filesScanned ${AppLoc.tr(context, 'file diperiksa. Tidak ada ancaman.')}';
     
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -80,7 +127,7 @@ class _ScanTabState extends State<ScanTab> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Row(
           children: [
-            Icon(hasThreats ? LucideIcons.shieldAlert : LucideIcons.checkCircle, color: hasThreats ? Colors.red : Colors.green),
+            Icon(hasThreats ? LucideIcons.shieldAlert : LucideIcons.checkCircle, color: hasThreats ? AppColors.error : AppColors.success),
             const SizedBox(width: 8),
             Text(AppLoc.tr(context, 'Pindai Selesai'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
           ],
@@ -102,16 +149,15 @@ class _ScanTabState extends State<ScanTab> {
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6);
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+    final textColor = AppColors.textPrimary(isDark);
+    final subTextColor = AppColors.textSecondary(isDark);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg(isDark),
       body: Stack(
         children: [
-          Positioned(top: -50, right: -50, child: _buildBlob(const Color(0xFFFCA5A5), 300)),
-          Positioned(bottom: 50, left: -100, child: _buildBlob(const Color(0xFF93C5FD), 250)),
+          Positioned(top: -50, right: -50, child: BackgroundBlob(color: AppColors.blobRed, size: 300)),
+          Positioned(bottom: 50, left: -100, child: BackgroundBlob(color: AppColors.blobBlue, size: 250)),
 
           SafeArea(
             child: ListView(
@@ -123,11 +169,10 @@ class _ScanTabState extends State<ScanTab> {
                 const SizedBox(height: 32),
                 
                 _buildScanOption(
-                  context: context,
                   icon: LucideIcons.zap,
                   title: 'Pindai Cepat',
                   subtitle: 'Memeriksa aplikasi sistem utama (1-2 Menit)',
-                  color: Colors.blue,
+                  color: AppColors.info,
                   onTap: () => _runScan('Quick'),
                   isDark: isDark,
                   textColor: textColor,
@@ -135,11 +180,10 @@ class _ScanTabState extends State<ScanTab> {
                 ),
                 const SizedBox(height: 16),
                 _buildScanOption(
-                  context: context,
                   icon: LucideIcons.search,
                   title: 'Pindai Menyeluruh',
                   subtitle: 'Memeriksa seluruh memori internal perangkat (> 5 Menit)',
-                  color: Colors.indigo,
+                  color: AppColors.scanColor,
                   onTap: () => _runScan('Full'),
                   isDark: isDark,
                   textColor: textColor,
@@ -147,7 +191,6 @@ class _ScanTabState extends State<ScanTab> {
                 ),
                 const SizedBox(height: 16),
                 _buildScanOption(
-                  context: context,
                   icon: LucideIcons.folderSearch,
                   title: 'Pindai Folder',
                   subtitle: 'Pilih direktori spesifik untuk diperiksa',
@@ -157,6 +200,77 @@ class _ScanTabState extends State<ScanTab> {
                   textColor: textColor,
                   subTextColor: subTextColor,
                 ),
+
+                // Scan History Section
+                if (_recentScans.isNotEmpty) ...[
+                  const SizedBox(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Riwayat Pemindaian',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          await ScanHistoryService.clearHistory();
+                          _loadRecentScans();
+                        },
+                        child: Text('Hapus', style: TextStyle(color: subTextColor, fontSize: 13)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ...List.generate(_recentScans.length, (i) {
+                    final scan = _recentScans[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GlassCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (scan.isSafe ? AppColors.success : AppColors.error).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                scan.isSafe ? LucideIcons.checkCircle : LucideIcons.alertTriangle,
+                                color: scan.isSafe ? AppColors.success : AppColors.error,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(scan.typeDisplay, style: TextStyle(fontWeight: FontWeight.bold, color: textColor, fontSize: 14)),
+                                  Text(
+                                    '${scan.filesScanned} file • ${_formatDate(scan.timestamp)}',
+                                    style: TextStyle(color: subTextColor, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              scan.isSafe ? 'Aman' : '${scan.malwareCount} ancaman',
+                              style: TextStyle(
+                                color: scan.isSafe ? AppColors.success : AppColors.error,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+
+                // Bottom padding for nav bar
+                const SizedBox(height: 100),
               ],
             ),
           )
@@ -165,8 +279,15 @@ class _ScanTabState extends State<ScanTab> {
     );
   }
 
+  String _formatDate(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes} menit lalu';
+    if (diff.inHours < 24) return '${diff.inHours} jam lalu';
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
   Widget _buildScanOption({
-    required BuildContext context,
     required IconData icon, 
     required String title, 
     required String subtitle, 
@@ -176,57 +297,38 @@ class _ScanTabState extends State<ScanTab> {
     required Color textColor,
     required Color subTextColor,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: InkWell(
-          onTap: _isScanning ? null : onTap,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.6),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: isDark ? Colors.white24 : Colors.white.withOpacity(0.8)),
+    bool isThisScanning = _isScanning && _currentScanType == title;
+
+    return GlassCard(
+      child: InkWell(
+        onTap: _isScanning ? null : onTap,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: color.withOpacity(isDark ? 0.2 : 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: isThisScanning
+                  ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: color))
+                  : Icon(icon, color: isDark ? color.withOpacity(0.8) : color, size: 32),
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(isDark ? 0.2 : 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: _isScanning 
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Icon(icon, color: isDark ? color.withOpacity(0.8) : color, size: 32),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
-                      const SizedBox(height: 4),
-                      Text(AppLoc.tr(context, subtitle), style: TextStyle(color: subTextColor, fontSize: 13)),
-                    ],
-                  ),
-                ),
-                Icon(LucideIcons.chevronRight, color: subTextColor.withOpacity(0.5))
-              ],
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
+                  const SizedBox(height: 4),
+                  Text(AppLoc.tr(context, subtitle), style: TextStyle(color: subTextColor, fontSize: 13)),
+                ],
+              ),
             ),
-          ),
+            Icon(LucideIcons.chevronRight, color: subTextColor.withOpacity(0.5))
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBlob(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color.withOpacity(0.4), shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), child: Container(color: Colors.transparent)),
     );
   }
 }

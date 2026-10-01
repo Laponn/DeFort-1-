@@ -3,21 +3,31 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'ui/android/android_main.dart';
-import 'ui/android/screens/login_screen.dart';
-import 'core/theme.dart';
+import 'ui/android/screens/splash_screen.dart';
+import 'core/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Global error handler
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('🔴 Flutter Error: ${details.exceptionAsString()}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔴 Platform Error: $error\n$stack');
+    return true;
+  };
+
   final prefs = await SharedPreferences.getInstance();
-  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppState(prefs)),
       ],
-      child: DeFortSecurityApp(isLoggedIn: isLoggedIn),
+      child: const DeFortSecurityApp(),
     ),
   );
 }
@@ -49,6 +59,10 @@ class AppState extends ChangeNotifier {
   
   bool isAntiPhishingActive = true;
   bool isFakeAppMonitorActive = false;
+
+  // SDK State
+  bool isSdkReady = false;
+  String? sdkError;
 
   void _loadFromPrefs() {
     userName = prefs.getString('userName') ?? 'User Simulator';
@@ -116,6 +130,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setSdkReady(bool ready, [String? error]) {
+    isSdkReady = ready;
+    sdkError = error;
+    notifyListeners();
+  }
+
   void toggleSetting(String key) {
     switch (key) {
       case 'realTime':
@@ -139,8 +159,7 @@ class AppState extends ChangeNotifier {
 }
 
 class DeFortSecurityApp extends StatelessWidget {
-  final bool isLoggedIn;
-  const DeFortSecurityApp({super.key, required this.isLoggedIn});
+  const DeFortSecurityApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -153,15 +172,46 @@ class DeFortSecurityApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.light,
         fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFFF3F4F6),
+        scaffoldBackgroundColor: AppColors.bgLight,
+        colorSchemeSeed: AppColors.primary,
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
         fontFamily: 'Inter',
-        scaffoldBackgroundColor: const Color(0xFF111827),
+        scaffoldBackgroundColor: AppColors.bgDark,
+        colorSchemeSeed: AppColors.primary,
       ),
       themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      home: isLoggedIn ? const AndroidMainScreen() : const LoginScreen(),
+      // Custom error widget for production
+      builder: (context, child) {
+        ErrorWidget.builder = (FlutterErrorDetails details) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Terjadi kesalahan',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  if (kDebugMode)
+                    Text(
+                      details.exceptionAsString(),
+                      style: const TextStyle(fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                ],
+              ),
+            ),
+          );
+        };
+        return child ?? const SizedBox.shrink();
+      },
+      home: const SplashScreen(),
     );
   }
 }

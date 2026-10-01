@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'dart:ui';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
+import '../../../core/constants.dart';
+import '../../../core/validators.dart';
+import '../../../core/scan_history.dart';
+import '../../../ui/shared/glass_widgets.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 
@@ -16,24 +19,52 @@ class IdentityTab extends StatefulWidget {
 class _IdentityTabState extends State<IdentityTab> {
   final TextEditingController _urlController = TextEditingController();
   bool _isCheckingUrl = false;
+  String? _urlError;
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
+  }
 
   void _checkUrl() async {
-    if (_urlController.text.isEmpty) return;
+    // Validate URL first
+    final validationError = Validators.url(_urlController.text);
+    if (validationError != null) {
+      setState(() => _urlError = validationError);
+      return;
+    }
+    setState(() => _urlError = null);
     
     setState(() => _isCheckingUrl = true);
     
     final result = await KasperskyChannel.checkUrlPhishing(_urlController.text);
     
+    if (!mounted) return;
     setState(() => _isCheckingUrl = false);
     
     if (result.containsKey('error')) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${result['error']}')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: ${result['error']}'),
+        backgroundColor: AppColors.error,
+      ));
     } else {
       bool isSafe = result['isSafe'] ?? false;
       List<dynamic> categories = result['categories'] ?? [];
       
+      // Simpan ke riwayat
+      ScanHistoryService.addRecord(ScanRecord(
+        type: 'url',
+        timestamp: DateTime.now(),
+        filesScanned: 0,
+        malwareCount: isSafe ? 0 : (categories.isEmpty ? 1 : categories.length),
+        malwareList: isSafe ? [] : categories.map((e) => e.toString()).toList(),
+        isRealSdk: result['isRealSdk'] == true,
+        folderPath: _urlController.text,
+      ));
+      
       bool isDark = Theme.of(context).brightness == Brightness.dark;
-      final textColor = isDark ? Colors.white : Colors.black87;
+      final textColor = AppColors.textPrimary(isDark);
 
       showDialog(
         context: context,
@@ -42,7 +73,7 @@ class _IdentityTabState extends State<IdentityTab> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              Icon(isSafe ? LucideIcons.checkCircle : LucideIcons.alertTriangle, color: isSafe ? Colors.green : Colors.red),
+              Icon(isSafe ? LucideIcons.checkCircle : LucideIcons.alertTriangle, color: isSafe ? AppColors.success : AppColors.error),
               const SizedBox(width: 8),
               Text(AppLoc.tr(context, isSafe ? 'Tautan Aman' : 'Bahaya Phishing!'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ],
@@ -50,7 +81,7 @@ class _IdentityTabState extends State<IdentityTab> {
           content: Text(
             isSafe 
                 ? AppLoc.tr(context, 'Kaspersky WebFilter menyatakan URL ini aman untuk dikunjungi.') 
-                : AppLoc.tr(context, 'URL ini terdeteksi sebagai ancaman. Kategori:') + ' ${categories.join(", ")}',
+                : '${AppLoc.tr(context, 'URL ini terdeteksi sebagai ancaman. Kategori:')} ${categories.join(", ")}',
             style: TextStyle(color: textColor)
           ),
           actions: [
@@ -69,8 +100,23 @@ class _IdentityTabState extends State<IdentityTab> {
        bool success = await KasperskyChannel.startFakeAppMonitor();
        if (success) {
          appState.toggleFakeAppMonitor(true);
+         
+         // Simpan log aktivitas
+         ScanHistoryService.addRecord(ScanRecord(
+           type: 'app_monitor',
+           timestamp: DateTime.now(),
+           filesScanned: 0,
+           malwareCount: 0,
+           malwareList: [],
+           isRealSdk: true,
+           folderPath: 'Monitor diaktifkan',
+         ));
+
          if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLoc.tr(context, 'Pemantauan Aplikasi Palsu Diaktifkan'))));
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+             content: Text(AppLoc.tr(context, 'Pemantauan Aplikasi Palsu Diaktifkan')),
+             backgroundColor: AppColors.success,
+           ));
          }
        }
     } else {
@@ -82,16 +128,15 @@ class _IdentityTabState extends State<IdentityTab> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6);
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+    final textColor = AppColors.textPrimary(isDark);
+    final subTextColor = AppColors.textSecondary(isDark);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: AppColors.bg(isDark),
       body: Stack(
         children: [
-          Positioned(top: 50, left: -50, child: _buildBlob(const Color(0xFFFCA5A5), 300)),
-          Positioned(bottom: 100, right: -50, child: _buildBlob(const Color(0xFFFDBA74), 250)),
+          Positioned(top: 50, left: -50, child: BackgroundBlob(color: AppColors.blobRed, size: 300)),
+          Positioned(bottom: 100, right: -50, child: BackgroundBlob(color: AppColors.blobOrange, size: 250)),
 
           SafeArea(
             child: ListView(
@@ -103,56 +148,70 @@ class _IdentityTabState extends State<IdentityTab> {
                 const SizedBox(height: 32),
 
                 // Manual URL Check
-                _buildGlassCard(
-                  context,
+                GlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Icon(LucideIcons.search, color: Colors.orange),
+                          const Icon(LucideIcons.search, color: AppColors.warning),
                           const SizedBox(width: 8),
                           Text(AppLoc.tr(context, 'Periksa Tautan (Anti-Phishing)'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
                         ],
                       ),
                       const SizedBox(height: 16),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: TextField(
-                              controller: _urlController,
-                              style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
-                              decoration: InputDecoration(
-                                hintText: 'https://example.com',
-                                hintStyle: TextStyle(color: subTextColor.withOpacity(0.5)),
-                                filled: true,
-                                fillColor: isDark ? Colors.grey[800]!.withOpacity(0.8) : Colors.white.withOpacity(0.9),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12), 
-                                  borderSide: BorderSide(color: subTextColor.withOpacity(0.2), width: 1),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: _urlController,
+                                  style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                                  onChanged: (_) {
+                                    if (_urlError != null) setState(() => _urlError = null);
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: 'https://example.com',
+                                    hintStyle: TextStyle(color: subTextColor.withOpacity(0.5)),
+                                    filled: true,
+                                    fillColor: isDark ? Colors.grey[800]!.withOpacity(0.8) : Colors.white.withOpacity(0.9),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12), 
+                                      borderSide: BorderSide(color: _urlError != null ? AppColors.error : subTextColor.withOpacity(0.2), width: 1),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12), 
+                                      borderSide: BorderSide(color: _urlError != null ? AppColors.error : subTextColor.withOpacity(0.2), width: 1),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12), 
+                                      borderSide: BorderSide(color: _urlError != null ? AppColors.error : AppColors.warning, width: 2),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    errorText: _urlError,
+                                  ),
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12), 
-                                  borderSide: BorderSide(color: subTextColor.withOpacity(0.2), width: 1),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12), 
-                                  borderSide: const BorderSide(color: Colors.orange, width: 2),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-                              ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: _isCheckingUrl ? null : _checkUrl,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.orange,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: ElevatedButton(
+                              onPressed: _isCheckingUrl ? null : _checkUrl,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.warning,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: _isCheckingUrl 
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+                                  : Text(AppLoc.tr(context, 'Cek')),
                             ),
-                            child: _isCheckingUrl ? const SizedBox(width:20, height:20, child: CircularProgressIndicator(color:Colors.white, strokeWidth:2)) : Text(AppLoc.tr(context, 'Cek')),
                           )
                         ],
                       )
@@ -165,24 +224,30 @@ class _IdentityTabState extends State<IdentityTab> {
                 const SizedBox(height: 16),
 
                 _buildSwitchCard(
-                  context,
                   icon: LucideIcons.globe, 
                   color: isDark ? Colors.lightBlue : Colors.blue, 
                   title: 'Web Filter / Anti-Phishing', 
                   subtitle: 'Memblokir situs penipuan secara otomatis', 
                   value: appState.isAntiPhishingActive, 
-                  onChanged: (v) => appState.toggleAntiPhishing(v)
+                  onChanged: (v) => appState.toggleAntiPhishing(v),
+                  isDark: isDark,
+                  textColor: textColor,
+                  subTextColor: subTextColor,
                 ),
                 const SizedBox(height: 12),
                 _buildSwitchCard(
-                  context,
                   icon: LucideIcons.smartphone, 
                   color: isDark ? Colors.purpleAccent : Colors.purple, 
                   title: 'Monitor Aplikasi Palsu', 
                   subtitle: 'Memindai aplikasi yang baru diinstal', 
                   value: appState.isFakeAppMonitorActive, 
-                  onChanged: (v) => _toggleFakeAppMonitor(v, appState)
+                  onChanged: (v) => _toggleFakeAppMonitor(v, appState),
+                  isDark: isDark,
+                  textColor: textColor,
+                  subTextColor: subTextColor,
                 ),
+
+                const SizedBox(height: 100), // Bottom nav padding
               ],
             ),
           )
@@ -191,13 +256,18 @@ class _IdentityTabState extends State<IdentityTab> {
     );
   }
 
-  Widget _buildSwitchCard(BuildContext context, {required IconData icon, required Color color, required String title, required String subtitle, required bool value, required Function(bool) onChanged}) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white70 : Colors.black54;
-
-    return _buildGlassCard(
-      context,
+  Widget _buildSwitchCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Function(bool) onChanged,
+    required bool isDark,
+    required Color textColor,
+    required Color subTextColor,
+  }) {
+    return GlassCard(
       child: Row(
         children: [
           Container(
@@ -222,34 +292,6 @@ class _IdentityTabState extends State<IdentityTab> {
           )
         ],
       )
-    );
-  }
-
-  Widget _buildBlob(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color.withOpacity(0.4), shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), child: Container(color: Colors.transparent)),
-    );
-  }
-
-  Widget _buildGlassCard(BuildContext context, {required Widget child}) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white24 : Colors.white.withOpacity(0.8)),
-          ),
-          child: child,
-        ),
-      ),
     );
   }
 }

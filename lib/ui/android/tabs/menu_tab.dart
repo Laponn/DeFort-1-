@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/localization.dart';
 import '../../../core/native_channel.dart';
+import '../../../core/constants.dart';
+import '../../../ui/shared/glass_widgets.dart';
 import '../screens/account_screen.dart';
 import '../screens/login_screen.dart';
 
@@ -15,15 +17,15 @@ class MenuTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final bgColor = isDark ? const Color(0xFF111827) : const Color(0xFFF3F4F6);
+    final textColor = AppColors.textPrimary(isDark);
+    final bgColor = AppColors.bg(isDark);
 
     return Scaffold(
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          Positioned(top: 0, left: 0, child: _buildBlob(const Color(0xFFFDE047), 200)),
-          Positioned(bottom: 50, right: -50, child: _buildBlob(const Color(0xFF6EE7B7), 250)),
+          Positioned(top: 0, left: 0, child: BackgroundBlob(color: AppColors.blobYellow, size: 200)),
+          Positioned(bottom: 50, right: -50, child: BackgroundBlob(color: AppColors.blobEmerald, size: 250)),
 
           SafeArea(
             child: ListView(
@@ -34,8 +36,8 @@ class MenuTab extends StatelessWidget {
                 
                   Consumer<AppState>(
                     builder: (context, appState, _) {
-                      return _buildGlassCard(
-                        context,
+                      return GlassCard(
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
                             _buildMenuTile(context, LucideIcons.user, 'Akun Saya', 'Kelola profil & data Anda', isAccount: true),
@@ -51,8 +53,8 @@ class MenuTab extends StatelessWidget {
                     }
                   ),
                   const SizedBox(height: 24),
-                  _buildGlassCard(
-                    context,
+                  GlassCard(
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
                         _buildMenuTile(context, LucideIcons.helpCircle, 'Pusat Bantuan', 'FAQ dan dukungan pelanggan', isHelp: true),
@@ -62,8 +64,8 @@ class MenuTab extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(height: 32),
-                _buildGlassCard(
-                  context,
+                GlassCard(
+                  padding: const EdgeInsets.all(20),
                   child: _buildMenuTile(context, LucideIcons.logOut, 'Keluar dari Akun', 'Akhiri sesi saat ini', isDestructive: true),
                 )
               ],
@@ -83,7 +85,7 @@ class MenuTab extends StatelessWidget {
           builder: (context, appState, _) {
             bool isDark = Theme.of(context).brightness == Brightness.dark;
             final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
-            final textColor = isDark ? Colors.white : Colors.black87;
+            final textColor = AppColors.textPrimary(isDark);
 
             return Container(
               padding: const EdgeInsets.all(24),
@@ -95,13 +97,7 @@ class MenuTab extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
+                  const SheetHandle(),
                   Text(AppLoc.tr(context, 'Preferensi Aplikasi'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
                   const SizedBox(height: 24),
                   
@@ -121,7 +117,7 @@ class MenuTab extends StatelessWidget {
                       ),
                       Switch(
                         value: appState.isDarkMode,
-                        activeColor: Colors.indigo,
+                        activeColor: AppColors.primaryAdaptive(isDark),
                         onChanged: (val) => appState.toggleTheme(),
                       ),
                     ],
@@ -144,7 +140,7 @@ class MenuTab extends StatelessWidget {
                       ),
                       Switch(
                         value: appState.isNotificationEnabled,
-                        activeColor: Colors.indigo,
+                        activeColor: AppColors.primaryAdaptive(isDark),
                         onChanged: (val) => appState.toggleNotifications(),
                       ),
                     ],
@@ -192,8 +188,8 @@ class MenuTab extends StatelessWidget {
 
   Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false, bool isLicense = false, bool isHelp = false, bool isAbout = false}) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+    final textColor = AppColors.textPrimary(isDark);
+    final subTextColor = AppColors.textSecondary(isDark);
 
     return InkWell(
       onTap: () {
@@ -235,7 +231,7 @@ class MenuTab extends StatelessWidget {
                       );
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
                   child: Text(AppLoc.tr(context, 'Keluar')),
                 )
               ],
@@ -250,14 +246,14 @@ class MenuTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: textColor.withOpacity(0.05), borderRadius: BorderRadius.circular(12)),
-              child: Icon(icon, color: isDestructive ? Colors.red : textColor),
+              child: Icon(icon, color: isDestructive ? AppColors.error : textColor),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDestructive ? Colors.red : textColor)),
+                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDestructive ? AppColors.error : textColor)),
                   if (subtitle.isNotEmpty) Text(AppLoc.tr(context, subtitle), style: TextStyle(fontSize: 13, color: subTextColor)),
                 ],
               ),
@@ -266,15 +262,6 @@ class MenuTab extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildBlob(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color.withOpacity(0.4), shape: BoxShape.circle),
-      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50), child: Container(color: Colors.transparent)),
     );
   }
 
@@ -297,9 +284,10 @@ class MenuTab extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SheetHandle(),
                   Row(
                     children: [
-                      const Icon(LucideIcons.crown, color: Colors.amber, size: 28),
+                      const Icon(LucideIcons.crown, color: AppColors.premiumColor, size: 28),
                       const SizedBox(width: 12),
                       Text(AppLoc.tr(context, 'DeFort Premium'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     ],
@@ -331,12 +319,12 @@ class MenuTab extends StatelessWidget {
                               ? AppLoc.tr(context, 'Premium berhasil diaktifkan!')
                               : AppLoc.tr(context, 'Langganan Premium dibatalkan.')
                             ),
-                            backgroundColor: appState.isPremium ? Colors.green : Colors.red,
+                            backgroundColor: appState.isPremium ? AppColors.success : AppColors.error,
                           )
                         );
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: appState.isPremium ? Colors.red : Colors.amber,
+                        backgroundColor: appState.isPremium ? AppColors.error : AppColors.premiumColor,
                         foregroundColor: appState.isPremium ? Colors.white : Colors.black,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -359,7 +347,7 @@ class MenuTab extends StatelessWidget {
 
   void _showLicenseSheet(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
+    final textColor = AppColors.textPrimary(isDark);
     final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
 
     showModalBottomSheet(
@@ -377,16 +365,10 @@ class MenuTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
+              const SheetHandle(),
               Row(
                 children: [
-                  Icon(LucideIcons.shieldCheck, color: Colors.green, size: 28),
+                  const Icon(LucideIcons.shieldCheck, color: AppColors.success, size: 28),
                   const SizedBox(width: 12),
                   Text(AppLoc.tr(context, 'Lisensi Kaspersky'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
                 ],
@@ -402,7 +384,7 @@ class MenuTab extends StatelessWidget {
                   final data = snapshot.data ?? {};
                   final isValid = data['isValid'] == true;
                   final statusText = isValid ? 'Aktif Terverifikasi' : 'Tidak Aktif / Error';
-                  final statusColor = isValid ? Colors.green : Colors.red;
+                  final statusColor = isValid ? AppColors.success : AppColors.error;
                   final activationCode = data['activationCode'] ?? 'TIDAK-DIKETAHUI';
                   
                   // Mask the middle of activation code for security
@@ -454,7 +436,7 @@ class MenuTab extends StatelessWidget {
 
   void _showHelpSheet(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
+    final textColor = AppColors.textPrimary(isDark);
     final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
 
     showModalBottomSheet(
@@ -472,16 +454,10 @@ class MenuTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
+              const SheetHandle(),
               Row(
                 children: [
-                  Icon(LucideIcons.helpCircle, color: Colors.indigo, size: 28),
+                  Icon(LucideIcons.helpCircle, color: AppColors.primaryAdaptive(isDark), size: 28),
                   const SizedBox(width: 12),
                   Text(AppLoc.tr(context, 'Pusat Bantuan (FAQ)'), style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),
                 ],
@@ -510,7 +486,7 @@ class MenuTab extends StatelessWidget {
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         title: Text(AppLoc.tr(context, question), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
-        iconColor: Colors.indigo,
+        iconColor: AppColors.primaryAdaptive(isDark),
         collapsedIconColor: textColor.withOpacity(0.5),
         childrenPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
         children: [
@@ -522,7 +498,7 @@ class MenuTab extends StatelessWidget {
 
   void _showAboutSheet(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.black87;
+    final textColor = AppColors.textPrimary(isDark);
     final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
 
     showModalBottomSheet(
@@ -540,20 +516,14 @@ class MenuTab extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
+              const SheetHandle(),
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.indigo.withOpacity(0.1),
+                  color: AppColors.primaryAdaptive(isDark).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(LucideIcons.shield, size: 64, color: Colors.indigo),
+                child: Icon(LucideIcons.shield, size: 64, color: AppColors.primaryAdaptive(isDark)),
               ),
               const SizedBox(height: 24),
               Text('DeFort Security', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: textColor)),
@@ -575,7 +545,7 @@ class MenuTab extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(LucideIcons.shieldCheck, size: 16, color: Colors.green),
+                    const Icon(LucideIcons.shieldCheck, size: 16, color: AppColors.success),
                     const SizedBox(width: 8),
                     Text('Powered by Kaspersky SDK', style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                   ],
@@ -596,29 +566,10 @@ class MenuTab extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         children: [
-          Icon(LucideIcons.checkCircle, color: Colors.green, size: 20),
+          const Icon(LucideIcons.checkCircle, color: AppColors.success, size: 20),
           const SizedBox(width: 12),
           Text(AppLoc.tr(context, text), style: const TextStyle(fontSize: 15)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildGlassCard(BuildContext context, {required Widget child}) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withOpacity(0.3) : Colors.white.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: isDark ? Colors.white24 : Colors.white.withOpacity(0.8)),
-          ),
-          child: child,
-        ),
       ),
     );
   }

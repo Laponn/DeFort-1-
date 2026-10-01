@@ -1,7 +1,16 @@
 package com.defort.defort
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
+import android.os.Build
+import android.os.Environment
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -29,6 +38,10 @@ import kotlin.concurrent.thread
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.defort/native_sdk"
+    private val PERMISSION_CHANNEL = "com.defort/permissions"
+    
+    // Activation code loaded from BuildConfig or local.properties in production
+    // For development, using direct value
     private val ACTIVATION_CODE = "ZCY92-JYW1R-NKG9V-6TAMN"
     
     private var antivirusComponent: Antivirus? = null
@@ -36,12 +49,89 @@ class MainActivity : FlutterActivity() {
     private var isSdkReady = false
     private var isLicenseValid = false
     private var licenseError: String? = null
+
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 1001
+        private const val LOCATION_PERMISSION_CODE = 1002
+        private const val STORAGE_PERMISSION_CODE = 1003
+    }
+
+    // Pending permission results
+    private var pendingPermissionResult: MethodChannel.Result? = null
     
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         
         thread { initializeSdk() }
+
+        // ==========================================
+        // PERMISSION CHANNEL
+        // ==========================================
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PERMISSION_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "requestStoragePermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Android 11+ - check MANAGE_EXTERNAL_STORAGE
+                        result.success(Environment.isExternalStorageManager())
+                    } else {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
+                            result.success(true)
+                        } else {
+                            pendingPermissionResult = result
+                            ActivityCompat.requestPermissions(this, arrayOf(
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                            ), STORAGE_PERMISSION_CODE)
+                        }
+                    }
+                }
+                "requestLocationPermission" -> {
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                        result.success(true)
+                    } else {
+                        pendingPermissionResult = result
+                        ActivityCompat.requestPermissions(this, arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ), LOCATION_PERMISSION_CODE)
+                    }
+                }
+                "requestAllPermissions" -> {
+                    val permissions = mutableListOf<String>()
+                    
+                    if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                    }
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                        }
+                    }
+
+                    if (permissions.isEmpty()) {
+                        result.success(mapOf("storage" to true, "location" to true))
+                    } else {
+                        pendingPermissionResult = result
+                        ActivityCompat.requestPermissions(this, permissions.toTypedArray(), PERMISSION_REQUEST_CODE)
+                    }
+                }
+                "checkEssentialPermissions" -> {
+                    val hasLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val hasStorage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        Environment.isExternalStorageManager()
+                    } else {
+                        ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                    }
+                    result.success(hasLocation && hasStorage)
+                }
+                else -> result.notImplemented()
+            }
+        }
         
+        // ==========================================
+        // NATIVE SDK CHANNEL
+        // ==========================================
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             if (!isSdkReady) {
                 result.error("SDK_NOT_READY", "Kaspersky SDK is initializing...", null)
@@ -60,10 +150,9 @@ class MainActivity : FlutterActivity() {
                 "getLicenseInfo" -> {
                     val license = KavSdk.getLicense()
                     var expireDateStr = "Tidak diketahui"
-                    if (license.licenseKeyExpireDate != null) {
-                        // Normally it's java.util.Date
+                    if (license.licenseKeyExpireDate > 0) {
                         val sdf = java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale("id", "ID"))
-                        expireDateStr = sdf.format(license.licenseKeyExpireDate)
+                        expireDateStr = sdf.format(java.util.Date(license.licenseKeyExpireDate * 1000L))
                     }
                     
                     result.success(mapOf(
@@ -203,7 +292,27 @@ class MainActivity : FlutterActivity() {
                 }
                 
                 "startFakeAppMonitor" -> {
-                    result.success(true)
+                    thread {
+                        try {
+                            val av = antivirusComponent
+                            if (av != null) {
+                                val appMonitor = com.kavsdk.antivirus.appmonitor.AppInstallationMonitor(applicationContext)
+                                appMonitor.enable(
+                                    { threat, type ->
+                                        Log.w("DeFort", "🚨 Fake App detected: ${threat?.virusName}")
+                                        false
+                                    },
+                                    null
+                                )
+                                runOnUiThread { result.success(true) }
+                            } else {
+                                runOnUiThread { result.success(false) }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DeFort", "FakeAppMonitor error: ${e.message}")
+                            runOnUiThread { result.success(false) }
+                        }
+                    }
                 }
 
                 // ==========================================
@@ -259,19 +368,29 @@ class MainActivity : FlutterActivity() {
                 
                 "getNetworkName" -> {
                     try {
-                        val connManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                        val activeNetwork = connManager.activeNetworkInfo
-                        if (activeNetwork != null && activeNetwork.isConnected) {
-                            if (activeNetwork.type == android.net.ConnectivityManager.TYPE_WIFI) {
-                                val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-                                val ssid = wifiManager.connectionInfo.ssid
-                                if (ssid == null || ssid == "<unknown ssid>") {
-                                    result.success("Wi-Fi Terhubung")
+                        val connManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                        val network = connManager.activeNetwork
+                        
+                        if (network != null) {
+                            val caps = connManager.getNetworkCapabilities(network)
+                            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                                // Wi-Fi connected - get SSID
+                                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                                    val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                                    @Suppress("DEPRECATION")
+                                    val ssid = wifiManager.connectionInfo.ssid
+                                    if (ssid == null || ssid == "<unknown ssid>") {
+                                        result.success("Wi-Fi Terhubung")
+                                    } else {
+                                        result.success(ssid.trim('"'))
+                                    }
                                 } else {
-                                    result.success(ssid.trim('"'))
+                                    result.success("Wi-Fi Terhubung (Izin lokasi diperlukan)")
                                 }
-                            } else {
+                            } else if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
                                 result.success("Data Seluler")
+                            } else {
+                                result.success("Terhubung")
                             }
                         } else {
                             result.success("Tidak Terhubung")
@@ -284,6 +403,28 @@ class MainActivity : FlutterActivity() {
                 else -> {
                     result.notImplemented()
                 }
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> {
+                val hasLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val hasStorage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    Environment.isExternalStorageManager()
+                } else {
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                }
+                pendingPermissionResult?.success(mapOf("storage" to hasStorage, "location" to hasLocation))
+                pendingPermissionResult = null
+            }
+            STORAGE_PERMISSION_CODE, LOCATION_PERMISSION_CODE -> {
+                val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                pendingPermissionResult?.success(granted)
+                pendingPermissionResult = null
             }
         }
     }

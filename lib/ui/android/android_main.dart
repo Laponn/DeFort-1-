@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:ui';
 import '../../core/localization.dart';
+import '../../core/constants.dart';
 
 import 'tabs/dashboard_tab.dart';
 import 'tabs/scan_tab.dart';
@@ -30,7 +31,7 @@ class _AndroidMainScreenState extends State<AndroidMainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: AppColors.bg(Theme.of(context).brightness == Brightness.dark),
       // Set to extend body so the bottom nav bar overlays the scrollable content
       extendBody: true,
       body: _tabs[_currentIndex],
