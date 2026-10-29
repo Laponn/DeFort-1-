@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "254300933121",
+    "project_id": "defort-936b7",
+    "storage_bucket": "defort-936b7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:254300933121:android:91f63532efacbc28080400",
+        "android_client_info": {
+          "package_name": "com.defort.defort"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmKqFhxmPthUN0q0P6uCMFT2ymBJj3Xlw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

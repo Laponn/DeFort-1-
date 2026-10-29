@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.kavsdk" >
+
+    <uses-sdk android:minSdkVersion="21" />
+
+    <!-- permissions below strictly required for SDK -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
+    <application>
+
+        <!-- service, activity, receiver and permissions below required for SDK -->
+        <service android:name="com.kavsdk.SdkService" />
+        <service
+            android:name="com.kavsdk.JobSchedulerService"
+            android:permission="android.permission.BIND_JOB_SERVICE" >
+        </service>
+
+        <activity
+            android:name="com.kavsdk.shared.cellmon.FakeActivity"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" >
+        </activity>
+
+        <receiver
+            android:name="com.kavsdk.StartReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver" > <!-- this receiver is used only to launch application, so there is no security risk -->
+            <intent-filter>
+                <action
+                    android:name="com.avsdk.READY"
+                    android:exported="true" >
+                </action>
+                <action
+                    android:name="com.avsdk.LAUNCH"
+                    android:exported="true" >
+                </action>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" >
+                </action>
+
+                <category android:name="android.intent.category.DEFAULT" >
+                </category>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" >
+                </action>
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name="com.kavsdk.AppInstallationReceiver"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name="com.kavsdk.AlarmReceiver" />
+    </application>
+
+</manifest>
