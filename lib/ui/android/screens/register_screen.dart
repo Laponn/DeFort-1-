@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/localization.dart';
+import '../../../core/auth_service.dart';
 import '../android_main.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -19,22 +20,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _obscureText = true;
+  bool _isLoading = false;
 
   void _register() async {
-    // Save to provider
-    final appState = Provider.of<AppState>(context, listen: false);
-    await appState.updateProfile(_nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'User Baru', _emailCtrl.text.isNotEmpty ? _emailCtrl.text : 'user@example.com', '+62 -');
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
+    if (_nameCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Semua kolom harus diisi!")));
+      return;
+    }
 
-    // Navigate to Home
-    if (mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const AndroidMainScreen()),
-        (route) => false,
-      );
+    setState(() => _isLoading = true);
+
+    String? result = await AuthService().registerUser(
+      email: _emailCtrl.text.trim(),
+      password: _passCtrl.text.trim(),
+      nama: _nameCtrl.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (result == "Sukses") {
+      // Navigate back to Login and show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Registrasi berhasil! Silakan login.")),
+        );
+        Navigator.pop(context);
+      }
+    } else {
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result ?? "Terjadi kesalahan")));
+      }
     }
   }
 

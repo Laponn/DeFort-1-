@@ -1,5 +1,8 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -44,6 +47,5 @@ flutter {
 }
 
 dependencies {
-    implementation(files("libs/KL_Base_SDK_Android_5.23.0.212_Release.aar"))
-    implementation(files("libs/KL_Mobile_SDK_Android_5.23.0.212_FullRelease.aar"))
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
 }

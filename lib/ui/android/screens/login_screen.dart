@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/localization.dart';
+import '../../../core/auth_service.dart';
 import '../android_main.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
@@ -18,17 +19,39 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _obscureText = true;
+  bool _isLoading = false;
 
   void _login() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
+    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Email dan kata sandi harus diisi!")));
+      return;
+    }
 
-    // Navigate to Home
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const AndroidMainScreen()),
-      );
+    setState(() => _isLoading = true);
+
+    String? result = await AuthService().loginUser(
+      email: _emailCtrl.text.trim(),
+      password: _passCtrl.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (result == "Sukses") {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', true);
+
+      // Navigate to Home
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AndroidMainScreen()),
+        );
+      }
+    } else {
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result ?? "Terjadi kesalahan")));
+      }
     }
   }
 

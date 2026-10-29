@@ -71,6 +71,17 @@ class AppLoc {
     'Monitor Aplikasi Palsu': {'en': 'Fake App Monitor', 'id': 'Monitor Aplikasi Palsu'},
     'Memindai aplikasi yang baru diinstal': {'en': 'Scan newly installed apps', 'id': 'Memindai aplikasi yang baru diinstal'},
     'Pemantauan Aplikasi Palsu Diaktifkan': {'en': 'Fake App Monitor Enabled', 'id': 'Pemantauan Aplikasi Palsu Diaktifkan'},
+    // URL Check Result
+    'Tautan Berbahaya!': {'en': 'Dangerous Link!', 'id': 'Tautan Berbahaya!'},
+    'Tidak Dapat Dipastikan': {'en': 'Cannot Be Confirmed', 'id': 'Tidak Dapat Dipastikan'},
+    'Alasan': {'en': 'Reasons', 'id': 'Alasan'},
+    'Pemeriksaan Gagal': {'en': 'Check Failed', 'id': 'Pemeriksaan Gagal'},
+    'Format URL tidak valid. Contoh: google.com atau https://example.com': {'en': 'Invalid URL format. Example: google.com or https://example.com', 'id': 'Format URL tidak valid. Contoh: google.com atau https://example.com'},
+    'Kaspersky SDK masih melakukan inisialisasi. Coba lagi dalam beberapa detik.': {'en': 'Kaspersky SDK is still initializing. Try again in a few seconds.', 'id': 'Kaspersky SDK masih melakukan inisialisasi. Coba lagi dalam beberapa detik.'},
+    'Lisensi Kaspersky tidak valid atau belum aktif. Pastikan perangkat terhubung ke internet lalu buka ulang aplikasi.': {'en': 'Kaspersky license is invalid or not activated. Make sure the device is online, then reopen the app.', 'id': 'Lisensi Kaspersky tidak valid atau belum aktif. Pastikan perangkat terhubung ke internet lalu buka ulang aplikasi.'},
+    'Tidak dapat terhubung ke server Kaspersky. Periksa koneksi internet Anda.': {'en': 'Cannot reach Kaspersky servers. Check your internet connection.', 'id': 'Tidak dapat terhubung ke server Kaspersky. Periksa koneksi internet Anda.'},
+    'Server Kaspersky tidak merespons. Coba lagi nanti.': {'en': 'Kaspersky server is not responding. Try again later.', 'id': 'Server Kaspersky tidak merespons. Coba lagi nanti.'},
+    'Terjadi kesalahan saat memeriksa URL.': {'en': 'An error occurred while checking the URL.', 'id': 'Terjadi kesalahan saat memeriksa URL.'},
     
     // Network Tab
     'Keamanan Jaringan': {'en': 'Network Security', 'id': 'Keamanan Jaringan'},
@@ -93,6 +104,25 @@ class AppLoc {
     'Berbahaya': {'en': 'Dangerous', 'id': 'Berbahaya'},
     'Sertifikat Valid': {'en': 'Valid Certificate', 'id': 'Sertifikat Valid'},
     'Sertifikat Invalid': {'en': 'Invalid Certificate', 'id': 'Sertifikat Invalid'},
+    'Tidak Terhubung ke WiFi': {'en': 'Not Connected to WiFi', 'id': 'Tidak Terhubung ke WiFi'},
+    'Kecepatan': {'en': 'Speed', 'id': 'Kecepatan'},
+    'Frekuensi': {'en': 'Frequency', 'id': 'Frekuensi'},
+    'Kekuatan Sinyal': {'en': 'Signal Strength', 'id': 'Kekuatan Sinyal'},
+    'Terhubung ke': {'en': 'Connected to', 'id': 'Terhubung ke'},
+    'sinyal': {'en': 'signal', 'id': 'sinyal'},
+    'Tidak terhubung ke jaringan WiFi.': {'en': 'Not connected to WiFi network.', 'id': 'Tidak terhubung ke jaringan WiFi.'},
+    'Terhubung melalui jaringan seluler.': {'en': 'Connected via cellular network.', 'id': 'Terhubung melalui jaringan seluler.'},
+    'Tidak Terhubung': {'en': 'Not Connected', 'id': 'Tidak Terhubung'},
+    'Pilih folder yang ingin dipindai': {'en': 'Choose folder to scan', 'id': 'Pilih folder yang ingin dipindai'},
+    'Pilih folder dari perangkat Anda untuk dipindai': {'en': 'Choose a folder from your device to scan', 'id': 'Pilih folder dari perangkat Anda untuk dipindai'},
+    'Memindai': {'en': 'Scanning', 'id': 'Memindai'},
+    'file diperiksa': {'en': 'files checked', 'id': 'file diperiksa'},
+    'ancaman terdeteksi': {'en': 'threats detected', 'id': 'ancaman terdeteksi'},
+    'Perangkat terdeteksi ROOT': {'en': 'Device detected as ROOTED', 'id': 'Perangkat terdeteksi ROOT'},
+    'Daftar ancaman:': {'en': 'Threat list:', 'id': 'Daftar ancaman:'},
+    'Perangkat Anda bersih!': {'en': 'Your device is clean!', 'id': 'Perangkat Anda bersih!'},
+    'Pemindaian tetap berjalan di latar belakang meski Anda keluar dari aplikasi.': {'en': 'Scanning continues in the background even if you leave the app.', 'id': 'Pemindaian tetap berjalan di latar belakang meski Anda keluar dari aplikasi.'},
+    'Tetap berjalan meski Anda keluar dari aplikasi.': {'en': 'Continues running even if you leave the app.', 'id': 'Tetap berjalan meski Anda keluar dari aplikasi.'},
     
     // Menu Tab
     'Pengaturan': {'en': 'Settings', 'id': 'Pengaturan'},
@@ -179,5 +209,10 @@ class AppLoc {
       return _localizedValues[key]![language] ?? key;
     }
     return key;
+  }
+
+  /// Kode bahasa aktif ('id' atau 'en').
+  static String lang(BuildContext context) {
+    return Provider.of<AppState>(context, listen: false).language;
   }
 }

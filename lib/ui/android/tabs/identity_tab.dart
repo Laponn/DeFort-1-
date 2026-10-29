@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:ui';
+import 'dart:convert';
 import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
+import '../../../core/url_analyzer.dart';
+import '../../../core/database_helper.dart';
+import '../../../core/scan_history_item.dart';
+import '../screens/history_screen.dart';
 
 class IdentityTab extends StatefulWidget {
   const IdentityTab({super.key});
@@ -19,50 +24,195 @@ class _IdentityTabState extends State<IdentityTab> {
   bool _isFakeAppMonitorActive = false;
 
   void _checkUrl() async {
-    if (_urlController.text.isEmpty) return;
-    
-    setState(() => _isCheckingUrl = true);
-    
-    final result = await KasperskyChannel.checkUrlPhishing(_urlController.text);
-    
-    setState(() => _isCheckingUrl = false);
-    
-    if (result.containsKey('error')) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${result['error']}')));
-    } else {
-      bool isSafe = result['isSafe'] ?? false;
-      List<dynamic> categories = result['categories'] ?? [];
-      
-      bool isDark = Theme.of(context).brightness == Brightness.dark;
-      final textColor = isDark ? Colors.white : Colors.black87;
+    FocusScope.of(context).unfocus();
+    final input = _urlController.text;
 
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Icon(isSafe ? LucideIcons.checkCircle : LucideIcons.alertTriangle, color: isSafe ? Colors.green : Colors.red),
-              const SizedBox(width: 8),
-              Text(AppLoc.tr(context, isSafe ? 'Tautan Aman' : 'Bahaya Phishing!'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Text(
-            isSafe 
-                ? AppLoc.tr(context, 'Kaspersky WebFilter menyatakan URL ini aman untuk dikunjungi.') 
-                : AppLoc.tr(context, 'URL ini terdeteksi sebagai ancaman. Kategori:') + ' ${categories.join(", ")}',
-            style: TextStyle(color: textColor)
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context), 
-              child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold))
-            )
-          ],
-        )
-      );
+    // 1. Rapikan & validasi input sebelum dikirim ke Kaspersky
+    final url = UrlAnalyzer.normalize(input);
+    if (url == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppLoc.tr(context, 'Format URL tidak valid. Contoh: google.com atau https://example.com')),
+      ));
+      return;
     }
+
+    setState(() => _isCheckingUrl = true);
+
+    // 2. Kirim ke Kaspersky SDK lewat MethodChannel
+    final native = await KasperskyChannel.checkUrlPhishing(url);
+
+    if (!mounted) return; // tab sudah ditutup saat menunggu hasil
+    setState(() => _isCheckingUrl = false);
+
+    // 3. Tangani error dengan pesan yang jelas sesuai kodenya
+    if (native.containsKey('error')) {
+      _showErrorDialog(native['code'] as String?, native['error']?.toString());
+      return;
+    }
+
+    // 4. Gabungkan verdict Kaspersky + heuristik lokal menjadi daftar alasan
+    final result = UrlAnalyzer.analyze(input: input, url: url, native: native);
+    
+    // 5. Simpan ke riwayat/database
+    try {
+      final detailsJson = jsonEncode({
+        'url': result.url,
+        'reasons': result.reasons.map((r) => r.text(AppLoc.lang(context))).toList(),
+      });
+
+      await DatabaseHelper.instance.insertScan(ScanHistoryItem(
+        scanType: 'URL',
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        statusLevel: result.safety == UrlSafety.safe ? 'SAFE' : (result.safety == UrlSafety.dangerous ? 'DANGER' : 'WARNING'),
+        summary: result.summary(AppLoc.lang(context)),
+        details: detailsJson,
+      ));
+    } catch (e) {
+      debugPrint('Gagal simpan riwayat: $e');
+    }
+
+    _showResultDialog(result);
+  }
+
+  /// Pesan error yang mudah dipahami berdasarkan kode dari native.
+  String _errorMessage(String? code) {
+    switch (code) {
+      case 'SDK_NOT_READY':
+        return 'Kaspersky SDK masih melakukan inisialisasi. Coba lagi dalam beberapa detik.';
+      case 'LICENSE_INVALID':
+        return 'Lisensi Kaspersky tidak valid atau belum aktif. Pastikan perangkat terhubung ke internet lalu buka ulang aplikasi.';
+      case 'NETWORK_ERROR':
+        return 'Tidak dapat terhubung ke server Kaspersky. Periksa koneksi internet Anda.';
+      case 'TIMEOUT':
+        return 'Server Kaspersky tidak merespons. Coba lagi nanti.';
+      case 'INVALID_URL':
+        return 'Format URL tidak valid. Contoh: google.com atau https://example.com';
+      default:
+        return 'Terjadi kesalahan saat memeriksa URL.';
+    }
+  }
+
+  void _showErrorDialog(String? code, String? detail) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white60 : Colors.black45;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(LucideIcons.alertCircle, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(child: Text(AppLoc.tr(context, 'Pemeriksaan Gagal'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLoc.tr(context, _errorMessage(code)), style: TextStyle(color: textColor)),
+            const SizedBox(height: 12),
+            // Detail teknis, berguna saat debugging
+            Text('[$code] ${detail ?? '-'}', style: TextStyle(color: subTextColor, fontSize: 11)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResultDialog(UrlCheckResult result) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+    final lang = AppLoc.lang(context);
+
+    // Warna, ikon, dan judul sesuai status akhir
+    final (Color color, IconData icon, String title) = switch (result.safety) {
+      UrlSafety.safe => (Colors.green, LucideIcons.checkCircle, 'Tautan Aman'),
+      UrlSafety.dangerous => (Colors.red, LucideIcons.alertTriangle, 'Tautan Berbahaya!'),
+      UrlSafety.unknown => (Colors.amber.shade700, Icons.help_outline, 'Tidak Dapat Dipastikan'),
+    };
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(AppLoc.tr(context, title), style: TextStyle(color: textColor, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // URL yang diperiksa
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(result.url, style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+                const SizedBox(height: 12),
+                // Kesimpulan
+                Text(result.summary(lang), style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                Text(AppLoc.tr(context, 'Alasan'), style: TextStyle(color: subTextColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 8),
+                // Daftar alasan
+                ...result.reasons.map((r) => _buildReasonRow(r, lang, textColor)),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReasonRow(UrlReason reason, String lang, Color textColor) {
+    final (IconData icon, Color color) = switch (reason.level) {
+      ReasonLevel.ok => (LucideIcons.checkCircle2, Colors.green),
+      ReasonLevel.info => (Icons.info_outline, Colors.blueGrey),
+      ReasonLevel.warning => (LucideIcons.alertCircle, Colors.orange),
+      ReasonLevel.danger => (LucideIcons.alertTriangle, Colors.red),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(reason.text(lang), style: TextStyle(color: textColor, fontSize: 13, height: 1.35))),
+        ],
+      ),
+    );
   }
 
   void _toggleFakeAppMonitor(bool val) async {
@@ -95,7 +245,20 @@ class _IdentityTabState extends State<IdentityTab> {
             child: ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                Text(AppLoc.tr(context, 'Identitas & Privasi'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: textColor)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(AppLoc.tr(context, 'Identitas & Privasi'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: textColor)),
+                    IconButton(
+                      icon: const Icon(LucideIcons.history),
+                      color: textColor,
+                      tooltip: 'Riwayat Pemindaian',
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+                      },
+                    )
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Text(AppLoc.tr(context, 'Lindungi diri dari Phishing dan Aplikasi Palsu.'), style: TextStyle(color: subTextColor)),
                 const SizedBox(height: 32),

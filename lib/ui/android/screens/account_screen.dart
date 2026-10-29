@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:ui';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
@@ -299,7 +299,12 @@ class AccountScreen extends StatelessWidget {
                               CircleAvatar(
                                 radius: 50,
                                 backgroundColor: isDark ? Colors.grey[800] : Colors.white,
-                                child: Text(appState.userName.isNotEmpty ? appState.userName.substring(0, 2).toUpperCase() : 'US', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                                child: Text(
+                                  appState.userName.isNotEmpty 
+                                    ? (appState.userName.length >= 2 ? appState.userName.substring(0, 2) : appState.userName).toUpperCase() 
+                                    : 'US', 
+                                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.indigo)
+                                ),
                               ),
                               Container(
                                 padding: const EdgeInsets.all(8),

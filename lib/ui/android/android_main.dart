@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:ui';
 import '../../core/localization.dart';
+import '../../core/native_channel.dart';
 
 import 'tabs/dashboard_tab.dart';
 import 'tabs/scan_tab.dart';
@@ -19,22 +20,38 @@ class AndroidMainScreen extends StatefulWidget {
 class _AndroidMainScreenState extends State<AndroidMainScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _tabs = [
-    const DashboardTab(),
-    const ScanTab(),
-    const IdentityTab(),
-    const NetworkTab(),
-    const MenuTab(),
+  final List<Widget> _tabs = const [
+    DashboardTab(),
+    ScanTab(),
+    IdentityTab(),
+    NetworkTab(),
+    MenuTab(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      // Set to extend body so the bottom nav bar overlays the scrollable content
-      extendBody: true,
-      body: _tabs[_currentIndex],
-      bottomNavigationBar: _buildFloatingNavBar(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          setState(() => _currentIndex = 0);
+        } else {
+          // Pindahkan aplikasi ke background agar pemindaian tetap berjalan sampai selesai
+          KasperskyChannel.moveTaskToBack();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4F6),
+        // Set to extend body so the bottom nav bar overlays the scrollable content
+        extendBody: true,
+        // IndexedStack menjaga seluruh tab tetap aktif (mounted) saat pengguna berpindah halaman
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _tabs,
+        ),
+        bottomNavigationBar: _buildFloatingNavBar(context),
+      ),
     );
   }
 
