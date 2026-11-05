@@ -54,6 +54,16 @@ class AppState extends ChangeNotifier {
   bool autoUpdate = true;
   bool selfDefense = true;
 
+  // Notifications preferences
+  bool notificationsEnabled = true;
+  bool threatAlerts = true;
+  bool phishingAlerts = true;
+  bool scanCompletionAlerts = true;
+
+  // Background Security & Protection
+  bool backgroundProtectionEnabled = true;
+  bool realTimePhishingProtection = true;
+
   void _loadFromPrefs() {
     userName = prefs.getString('userName') ?? 'User Simulator';
     userEmail = prefs.getString('userEmail') ?? 'user.simulator@example.com';
@@ -62,6 +72,12 @@ class AppState extends ChangeNotifier {
     isPremium = prefs.getBool('isPremium') ?? false;
     language = prefs.getString('language') ?? 'id';
     isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    notificationsEnabled = prefs.getBool('notificationsEnabled') ?? true;
+    threatAlerts = prefs.getBool('threatAlerts') ?? true;
+    phishingAlerts = prefs.getBool('phishingAlerts') ?? true;
+    scanCompletionAlerts = prefs.getBool('scanCompletionAlerts') ?? true;
+    backgroundProtectionEnabled = prefs.getBool('backgroundProtectionEnabled') ?? true;
+    realTimePhishingProtection = prefs.getBool('realTimePhishingProtection') ?? true;
     notifyListeners();
   }
 
@@ -96,6 +112,40 @@ class AppState extends ChangeNotifier {
   Future<void> toggleTheme() async {
     isDarkMode = !isDarkMode;
     await prefs.setBool('isDarkMode', isDarkMode);
+    notifyListeners();
+  }
+
+  Future<void> toggleNotificationSetting(String key) async {
+    switch (key) {
+      case 'master':
+        notificationsEnabled = !notificationsEnabled;
+        await prefs.setBool('notificationsEnabled', notificationsEnabled);
+        break;
+      case 'threat':
+        threatAlerts = !threatAlerts;
+        await prefs.setBool('threatAlerts', threatAlerts);
+        break;
+      case 'phishing':
+        phishingAlerts = !phishingAlerts;
+        await prefs.setBool('phishingAlerts', phishingAlerts);
+        break;
+      case 'scanComplete':
+        scanCompletionAlerts = !scanCompletionAlerts;
+        await prefs.setBool('scanCompletionAlerts', scanCompletionAlerts);
+        break;
+    }
+    notifyListeners();
+  }
+
+  Future<void> setBackgroundProtection(bool val) async {
+    backgroundProtectionEnabled = val;
+    await prefs.setBool('backgroundProtectionEnabled', val);
+    notifyListeners();
+  }
+
+  Future<void> setPhishingProtection(bool val) async {
+    realTimePhishingProtection = val;
+    await prefs.setBool('realTimePhishingProtection', val);
     notifyListeners();
   }
 

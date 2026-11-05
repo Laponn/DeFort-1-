@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Titanium Dark Gradient -->
+    <linearGradient id="titaniumDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+
+    <!-- Chrome Silver Highlight Bevel -->
+    <linearGradient id="chromeBevel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="50%" stop-color="#94A3B8"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+
+    <!-- Electric Cyan Glow -->
+    <linearGradient id="reactorCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+
+    <!-- Cyber Gold Reactor -->
+    <linearGradient id="cyberGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+
+    <filter id="apexGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- PURE SOLID BLACK BACKGROUND SQUIRCLE -->
+  <rect width="512" height="512" rx="116" fill="#000000"/>
+  <rect width="508" height="508" x="2" y="2" rx="114" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="2"/>
+
+  <!-- Back Armored Shield Silhouette (Deep Obsidian Foundation) -->
+  <polygon points="256,60 410,120 375,320 256,445 137,320 102,120" 
+           fill="#0B1120" stroke="#334155" stroke-width="4"/>
+
+  <!-- Left Multi-Tiered Falcon Wing Armor (Titanium Plating) -->
+  <path d="M 256,110 L 115,165 L 140,250 L 180,290 L 256,380 L 256,330 L 210,270 L 190,220 L 256,170 Z" 
+        fill="url(#titaniumDark)" stroke="url(#chromeBevel)" stroke-width="2.5"/>
+  
+  <!-- Right Multi-Tiered Falcon Wing Armor -->
+  <path d="M 256,110 L 397,165 L 372,250 L 332,290 L 256,380 L 256,330 L 302,270 L 322,220 L 256,170 Z" 
+        fill="url(#titaniumDark)" stroke="url(#chromeBevel)" stroke-width="2.5"/>
+
+  <!-- Falcon Wing Energy Channels (Neon Cyan) -->
+  <path d="M 256,140 L 155,185 L 175,250 L 256,340 L 256,310 L 205,255 L 195,210 L 256,175 Z" 
+        fill="url(#reactorCyan)" opacity="0.9" filter="url(#apexGlow)"/>
+  <path d="M 256,140 L 357,185 L 337,250 L 256,340 L 256,310 L 307,255 L 317,210 L 256,175 Z" 
+        fill="url(#reactorCyan)" opacity="0.9" filter="url(#apexGlow)"/>
+
+  <!-- Center Diamond Vault Keystone Shield -->
+  <polygon points="256,80 300,165 256,360 212,165" 
+           fill="url(#chromeBevel)" filter="url(#apexGlow)"/>
+
+  <!-- Left Diamond Facet Shading -->
+  <polygon points="256,80 212,165 256,360" fill="#475569" opacity="0.45"/>
+
+  <!-- Glowing Inner Cyber Reactor Core (Fortress Power) -->
+  <polygon points="256,180 290,225 256,270 222,225" 
+           fill="url(#cyberGold)" filter="url(#apexGlow)"/>
+
+  <circle cx="256" cy="225" r="9" fill="#000000"/>
+  <circle cx="256" cy="225" r="4.5" fill="#00F5FF" filter="url(#apexGlow)"/>
+
+  <!-- Bottom Apex Spur -->
+  <polygon points="256,410 268,435 256,455 244,435" fill="#00F5FF" filter="url(#apexGlow)"/>
+</svg>
+

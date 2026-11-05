@@ -9,6 +9,8 @@ import '../../../core/localization.dart';
 import '../../../core/database_helper.dart';
 import '../../../core/scan_history_item.dart';
 import '../screens/history_screen.dart';
+import '../screens/quarantine_screen.dart';
+import '../screens/post_scan_action_dialog.dart';
 
 class _ScanLogEntry {
   final String message;
@@ -301,61 +303,10 @@ class _ScanTabState extends State<ScanTab> {
     final List<dynamic> malwareList = result['malwareList'] ?? [];
     final String? scannedFolder = result['folderPath'];
 
-    final bool hasThreat = malwareCount > 0 || isRooted;
-    final IconData resultIcon = hasThreat ? LucideIcons.alertTriangle : LucideIcons.checkCircle;
-    final Color resultColor = hasThreat ? Colors.red : Colors.green;
-
-    String titleText = hasThreat
-        ? AppLoc.tr(context, 'Ancaman Ditemukan!')
-        : AppLoc.tr(context, 'Pindai Selesai');
-
-    // Bangun detail hasil scan
-    StringBuffer details = StringBuffer();
-    if (scannedFolder != null) {
-      details.writeln('📁 $scannedFolder');
-      details.writeln('');
-    }
-    details.writeln('📄 $filesScanned ${AppLoc.tr(context, 'file diperiksa')} ($objectsScanned objek)');
-    details.writeln('⏱️ Durasi pemindaian: $elapsedSec detik (100%)');
-    details.writeln('🛡️ $malwareCount ${AppLoc.tr(context, 'ancaman terdeteksi')}');
-    if (isRooted) {
-      details.writeln('⚠️ ${AppLoc.tr(context, 'Perangkat terdeteksi ROOT')}');
-    }
-    if (malwareList.isNotEmpty) {
-      details.writeln('');
-      details.writeln(AppLoc.tr(context, 'Daftar ancaman:'));
-      for (var threat in malwareList) {
-        details.writeln('• $threat');
-      }
-    }
-    if (!hasThreat) {
-      details.writeln('');
-      details.writeln('✅ ${AppLoc.tr(context, 'Perangkat Anda bersih!')}');
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Row(
-          children: [
-            Icon(resultIcon, color: resultColor),
-            const SizedBox(width: 8),
-            Expanded(child: Text(titleText, style: TextStyle(color: textColor, fontWeight: FontWeight.bold))),
-          ],
-        ),
-        content: Text(
-          details.toString().trim(),
-          style: TextStyle(color: textColor),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(color: textColor, fontWeight: FontWeight.bold))
-          )
-        ],
-      )
+    // Tampilkan Action Center Pasca-Pemindaian (Opsi Lanjutan Karantina/Hapus jika ada ancaman, atau Tips Pencegahan jika aman)
+    PostScanActionDialog.show(
+      context,
+      scanResult: result,
     );
   }
 
@@ -381,14 +332,26 @@ class _ScanTabState extends State<ScanTab> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(AppLoc.tr(context, 'Pindai Perangkat'), style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: textColor)),
-                    IconButton(
-                      icon: const Icon(LucideIcons.history),
-                      color: textColor,
-                      tooltip: 'Riwayat Pemindaian',
-                      onPressed: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
-                      },
-                    )
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(LucideIcons.packageCheck),
+                          color: textColor,
+                          tooltip: 'Ruang Karantina',
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => const QuarantineScreen()));
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.history),
+                          color: textColor,
+                          tooltip: 'Riwayat Pemindaian',
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+                          },
+                        ),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),

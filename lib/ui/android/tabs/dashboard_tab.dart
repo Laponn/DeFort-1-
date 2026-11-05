@@ -9,6 +9,7 @@ import '../../../core/native_channel.dart';
 import '../../../core/localization.dart';
 import '../../../core/database_helper.dart';
 import '../../../core/scan_history_item.dart';
+import '../screens/post_scan_action_dialog.dart';
 
 class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
@@ -203,6 +204,10 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
          }
       }
     });
+
+    if (!result.containsKey('error') && mounted) {
+      PostScanActionDialog.show(context, scanResult: result);
+    }
   }
 
   @override
@@ -350,13 +355,14 @@ class _DashboardTabState extends State<DashboardTab> with SingleTickerProviderSt
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]),
-                  borderRadius: BorderRadius.circular(12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/logos/app_logo.png',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
                 ),
-                child: const Icon(LucideIcons.shieldCheck, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 12),
               Text('DeFort', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor)),

@@ -7,6 +7,8 @@ import '../../../main.dart';
 import '../../../core/localization.dart';
 import '../screens/account_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/quarantine_screen.dart';
+import '../screens/permissions_screen.dart';
 
 class MenuTab extends StatelessWidget {
   const MenuTab({super.key});
@@ -39,11 +41,15 @@ class MenuTab extends StatelessWidget {
                         children: [
                           _buildMenuTile(context, LucideIcons.user, 'Akun Saya', 'Kelola profil & data Anda', isAccount: true),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
+                          _buildMenuTile(context, LucideIcons.packageCheck, 'Ruang Karantina', 'Kelola berkas terisolasi & ancaman', isQuarantine: true),
+                          Divider(color: textColor.withOpacity(0.1), height: 24),
                           _buildMenuTile(context, LucideIcons.crown, 'DeFort Premium', appState.isPremium ? 'Status: Aktif' : 'Tingkatkan untuk perlindungan ekstra', isPremium: true),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
                           _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027'),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
                           _buildMenuTile(context, LucideIcons.settings, 'Preferensi', 'Bahasa, Tema, Notifikasi', isPreferences: true),
+                          Divider(color: textColor.withOpacity(0.1), height: 24),
+                          _buildMenuTile(context, LucideIcons.shieldAlert, 'Izin & Perlindungan Latar Belakang', 'File, Notifikasi, Baterai & Anti-Phishing', isPermissions: true),
                         ],
                       ),
                     );
@@ -77,87 +83,207 @@ class MenuTab extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
         return Consumer<AppState>(
           builder: (context, appState, _) {
             bool isDark = Theme.of(context).brightness == Brightness.dark;
-            final sheetBgColor = isDark ? Colors.grey[900]! : Colors.white;
+            final sheetBgColor = isDark ? const Color(0xFF1E293B) : Colors.white;
             final textColor = isDark ? Colors.white : Colors.black87;
 
             return Container(
-              padding: const EdgeInsets.all(24),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
               decoration: BoxDecoration(
                 color: sheetBgColor,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40, height: 4,
-                      margin: const EdgeInsets.only(bottom: 24),
-                      decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(10)),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40, height: 4,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.4), borderRadius: BorderRadius.circular(10)),
+                      ),
                     ),
-                  ),
-                  Text(AppLoc.tr(context, 'Preferensi Aplikasi'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
-                  const SizedBox(height: 24),
-                  
-                  // Dark Mode Toggle
-                  Row(
-                    children: [
-                      Icon(LucideIcons.moon, color: textColor),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    Text(AppLoc.tr(context, 'Preferensi Aplikasi'), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor)),
+                    const SizedBox(height: 20),
+                    
+                    // Dark Mode Toggle
+                    Row(
+                      children: [
+                        Icon(LucideIcons.moon, color: textColor),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(AppLoc.tr(context, 'Mode Gelap'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                              Text(AppLoc.tr(context, 'Tampilan malam hari'), style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.6))),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: appState.isDarkMode,
+                          activeColor: Colors.indigo,
+                          onChanged: (val) => appState.toggleTheme(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Language Toggle
+                    Row(
+                      children: [
+                        Icon(LucideIcons.languages, color: textColor),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(AppLoc.tr(context, 'Bahasa'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textColor)),
+                              Text(AppLoc.tr(context, 'Pilih bahasa aplikasi'), style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.6))),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: textColor.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButton<String>(
+                            value: appState.language,
+                            dropdownColor: sheetBgColor,
+                            style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                            underline: const SizedBox(),
+                            items: const [
+                              DropdownMenuItem(value: 'id', child: Text('Indonesia 🇮🇩')),
+                              DropdownMenuItem(value: 'en', child: Text('English 🇺🇸')),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) appState.setLanguage(val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    Divider(color: textColor.withOpacity(0.12), height: 32),
+
+                    // SECTION: NOTIFICATION SETTINGS
+                    Row(
+                      children: [
+                        const Icon(LucideIcons.bellRing, color: Colors.indigoAccent, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          AppLoc.tr(context, 'Pengaturan Notifikasi'),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Master Toggle Notifikasi
+                    _buildSwitchRow(
+                      context: context,
+                      textColor: textColor,
+                      title: AppLoc.tr(context, 'Notifikasi Keamanan'),
+                      subtitle: AppLoc.tr(context, 'Izinkan DeFort mengirimkan pemberitahuan penting'),
+                      value: appState.notificationsEnabled,
+                      onChanged: (val) => appState.toggleNotificationSetting('master'),
+                    ),
+
+                    if (appState.notificationsEnabled) ...[
+                      const SizedBox(height: 12),
+                      _buildSwitchRow(
+                        context: context,
+                        textColor: textColor,
+                        title: AppLoc.tr(context, 'Peringatan Ancaman Real-time'),
+                        subtitle: AppLoc.tr(context, 'Pemberitahuan saat mendeteksi file berbahaya atau malware'),
+                        value: appState.threatAlerts,
+                        onChanged: (val) => appState.toggleNotificationSetting('threat'),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSwitchRow(
+                        context: context,
+                        textColor: textColor,
+                        title: AppLoc.tr(context, 'Peringatan Anti-Phishing'),
+                        subtitle: AppLoc.tr(context, 'Peringatan darurat saat membuka situs atau link penipuan'),
+                        value: appState.phishingAlerts,
+                        onChanged: (val) => appState.toggleNotificationSetting('phishing'),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildSwitchRow(
+                        context: context,
+                        textColor: textColor,
+                        title: AppLoc.tr(context, 'Laporan Pemindaian Selesai'),
+                        subtitle: AppLoc.tr(context, 'Notifikasi saat pemindaian latar belakang selesai'),
+                        value: appState.scanCompletionAlerts,
+                        onChanged: (val) => appState.toggleNotificationSetting('scanComplete'),
+                      ),
+                    ],
+
+                    Divider(color: textColor.withOpacity(0.12), height: 32),
+
+                    // SECTION: DEVICE PERMISSIONS SHORTCUT
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PermissionsScreen()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.indigoAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.indigoAccent.withOpacity(0.3)),
+                        ),
+                        child: Row(
                           children: [
-                            Text(AppLoc.tr(context, 'Mode Gelap'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
-                            Text(AppLoc.tr(context, 'Tampilan malam hari'), style: TextStyle(color: textColor.withOpacity(0.6))),
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.indigoAccent.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(LucideIcons.shieldCheck, color: Colors.indigoAccent, size: 24),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppLoc.tr(context, 'Izin & Perlindungan Latar Belakang'),
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: textColor),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    AppLoc.tr(context, 'Kelola izin agar perlindungan 24/7 tetap aktif'),
+                                    style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.65)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(LucideIcons.chevronRight, color: textColor.withOpacity(0.5), size: 20),
                           ],
                         ),
                       ),
-                      Switch(
-                        value: appState.isDarkMode,
-                        activeColor: Colors.indigo,
-                        onChanged: (val) => appState.toggleTheme(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Language Toggle
-                  Row(
-                    children: [
-                      Icon(LucideIcons.languages, color: textColor),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(AppLoc.tr(context, 'Bahasa'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor)),
-                            Text(AppLoc.tr(context, 'Pilih bahasa aplikasi'), style: TextStyle(color: textColor.withOpacity(0.6))),
-                          ],
-                        ),
-                      ),
-                      DropdownButton<String>(
-                        value: appState.language,
-                        dropdownColor: sheetBgColor,
-                        style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
-                        underline: const SizedBox(),
-                        items: const [
-                          DropdownMenuItem(value: 'id', child: Text('Indonesia')),
-                          DropdownMenuItem(value: 'en', child: Text('English')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) appState.setLanguage(val);
-                        },
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
               ),
             );
           }
@@ -166,7 +292,36 @@ class MenuTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false}) {
+  Widget _buildSwitchRow({
+    required BuildContext context,
+    required Color textColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textColor)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 11, color: textColor.withOpacity(0.6), height: 1.3)),
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          activeColor: Colors.indigo,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false, bool isQuarantine = false, bool isPermissions = false}) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
@@ -175,6 +330,10 @@ class MenuTab extends StatelessWidget {
       onTap: () {
         if (isAccount) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const AccountScreen()));
+        } else if (isQuarantine) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const QuarantineScreen()));
+        } else if (isPermissions) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
         } else if (isPreferences) {
            _showPreferencesSheet(context);
         } else if (isPremium) {
@@ -210,6 +369,49 @@ class MenuTab extends StatelessWidget {
                 )
               ],
             )
+          );
+        } else if (title == 'Tentang DeFort') {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.asset('assets/logos/app_logo.png', width: 72, height: 72, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('DeFort Antivirus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: textColor)),
+                  const SizedBox(height: 4),
+                  Text('Versi 1.0.0 (Build 2026)', style: TextStyle(fontSize: 13, color: textColor.withOpacity(0.6))),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Perlindungan malware dan keamanan siber mobile mutakhir yang ditenagai oleh mesin Kaspersky Mobile Security SDK.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: textColor.withOpacity(0.8), height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text('Kaspersky SDK Engine 5.23', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppLoc.tr(context, 'Tutup'), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
+                )
+              ],
+            ),
           );
         } else {
           showDialog(

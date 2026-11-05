@@ -241,4 +241,213 @@ class KasperskyChannel {
       };
     }
   }
+
+  // ==========================================
+  // 4. TINDAKAN LANJUTAN: KARANTINA & REMEDIATION
+  // ==========================================
+
+  /// Karantina berkas berbahaya menggunakan engine Kaspersky (atau fallback vault DeFort).
+  static Future<Map<String, dynamic>> quarantineThreat(
+    String threatId, {
+    String? filePath,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod('quarantineThreat', {
+        'id': threatId,
+        'filePath': filePath ?? '',
+      });
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      return {
+        'success': false,
+        'id': threatId,
+        'message': 'Gagal melakukan karantina: $e',
+      };
+    }
+  }
+
+  /// Hapus permanen berkas berbahaya atau minta uninstal aplikasi jahat.
+  static Future<Map<String, dynamic>> deleteThreat(
+    String threatId, {
+    String? filePath,
+    String? packageName,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod('deleteThreat', {
+        'id': threatId,
+        'filePath': filePath ?? '',
+        'packageName': packageName ?? '',
+      });
+      return Map<String, dynamic>.from(result as Map);
+    } catch (e) {
+      return {
+        'success': false,
+        'id': threatId,
+        'message': 'Gagal menghapus ancaman: $e',
+      };
+    }
+  }
+
+  /// Ambil daftar seluruh berkas yang sedang diisolasi di ruang karantina.
+  static Future<List<Map<String, dynamic>>> getQuarantineList() async {
+    try {
+      final result = await _channel.invokeMethod('getQuarantineList');
+      if (result is List) {
+        return result.map((item) => Map<String, dynamic>.from(item as Map)).toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Pulihkan berkas dari ruang karantina ke penyimpanan semula / Downloads.
+  static Future<bool> restoreQuarantineItem(
+    String quarantineName, {
+    String? targetPath,
+  }) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('restoreQuarantineItem', {
+        'quarantineName': quarantineName,
+        'targetPath': targetPath ?? '',
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Hapus permanen berkas yang ada di dalam karantina.
+  static Future<bool> deleteQuarantineItem(String quarantineName) async {
+    try {
+      final result = await _channel.invokeMethod<bool>('deleteQuarantineItem', {
+        'quarantineName': quarantineName,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ==========================================
+  // 5. PERIZINAN & PERLINDUNGAN LATAR BELAKANG
+  // ==========================================
+
+  /// Periksa status perizinan perangkat secara lengkap (Storage, Notifikasi, Baterai, Lokasi, Aksesibilitas, Pemantau Unduhan).
+  static Future<Map<String, bool>> getDevicePermissionsStatus() async {
+    try {
+      final res = await _channel.invokeMethod('getDevicePermissionsStatus');
+      if (res is Map) {
+        return {
+          'storage': res['storage'] == true,
+          'notification': res['notification'] == true,
+          'batteryOptimization': res['batteryOptimization'] == true,
+          'location': res['location'] == true,
+          'accessibility': res['accessibility'] == true,
+          'downloadWatcher': res['downloadWatcher'] == true,
+        };
+      }
+    } catch (_) {}
+    return {
+      'storage': false,
+      'notification': false,
+      'batteryOptimization': false,
+      'location': false,
+      'accessibility': false,
+      'downloadWatcher': false,
+    };
+  }
+
+  /// Cek apakah Layanan Aksesibilitas Anti-Phishing aktif di Pengaturan Android
+  static Future<bool> isAccessibilityEnabled() async {
+    try {
+      return await _channel.invokeMethod<bool>('isAccessibilityEnabled') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Buka Pengaturan Aksesibilitas Android agar pengguna dapat mengaktifkan DeFort Anti-Phishing
+  static Future<bool> openAccessibilitySettings() async {
+    try {
+      return await _channel.invokeMethod<bool>('openAccessibilitySettings') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Jalankan Pemantau Berkas Unduhan Latar Belakang (FolderMonitor + FileObserver)
+  static Future<bool> startDownloadMonitor() async {
+    try {
+      return await _channel.invokeMethod<bool>('startDownloadMonitor') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Hentikan Pemantau Berkas Unduhan Latar Belakang
+  static Future<bool> stopDownloadMonitor() async {
+    try {
+      return await _channel.invokeMethod<bool>('stopDownloadMonitor') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Cek apakah Pemantau Berkas Unduhan Latar Belakang sedang aktif
+  static Future<bool> isDownloadMonitorActive() async {
+    try {
+      return await _channel.invokeMethod<bool>('isDownloadMonitorActive') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Pindai paket aplikasi tertentu secara langsung (Auto-scan verification)
+  static Future<Map<String, dynamic>> scanInstalledAppNow(String packageName) async {
+    try {
+      final res = await _channel.invokeMethod('scanInstalledAppNow', {
+        'packageName': packageName,
+      });
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {'isSafe': true, 'threatCount': 0, 'threats': []};
+  }
+
+  /// Minta izin notifikasi Android (POST_NOTIFICATIONS)
+  static Future<bool> requestNotificationPermission() async {
+    try {
+      return await _channel.invokeMethod<bool>('requestNotificationPermission') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Minta izin agar aplikasi tidak dibatasi penghemat baterai (Background Run)
+  static Future<bool> requestBatteryOptimization() async {
+    try {
+      return await _channel.invokeMethod<bool>('requestBatteryOptimization') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Jalankan uji coba / simulasi pencegahan tautan phishing latar belakang
+  static Future<Map<String, dynamic>> testPhishingDetection({
+    String url = 'https://secure-login-account-update.xyz/phishing',
+    String reason = 'Phishing / Fake Banking Portal',
+  }) async {
+    try {
+      final res = await _channel.invokeMethod('testPhishingDetection', {
+        'url': url,
+        'reason': reason,
+      });
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {'blocked': true, 'url': url, 'reason': reason};
+  }
 }

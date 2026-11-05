@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import com.kavsdk.KavSdk
@@ -47,10 +48,12 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 import kotlin.math.roundToInt
@@ -81,6 +84,8 @@ class MainActivity : FlutterActivity() {
 
         @Volatile
         private var currentScanInfo: Map<String, Any?>? = null
+
+        val detectedThreatsStore = ConcurrentHashMap<String, ThreatInfo>()
 
         private val uiThreadHandler = Handler(Looper.getMainLooper())
 
@@ -218,6 +223,138 @@ class MainActivity : FlutterActivity() {
                         )
                         result.success(false)
                     }
+                }
+
+                "getDevicePermissionsStatus" -> {
+                    val storageGranted = hasAllFilesAccess()
+                    val notifGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                    } else true
+                    val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                    val batteryIgnored = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        pm.isIgnoringBatteryOptimizations(packageName)
+                    } else true
+
+                    val accessibilityEnabled = DeFortAccessibilityService.isEnabled(applicationContext)
+                    val downloadWatcherActive = DownloadMonitor.isMonitoring()
+
+                    result.success(
+                        mapOf(
+                            "storage" to storageGranted,
+                            "notification" to notifGranted,
+                            "batteryOptimization" to batteryIgnored,
+                            "location" to hasLocationPermission(applicationContext),
+                            "accessibility" to accessibilityEnabled,
+                            "downloadWatcher" to downloadWatcherActive
+                        )
+                    )
+                }
+
+                "isAccessibilityEnabled" -> {
+                    result.success(DeFortAccessibilityService.isEnabled(applicationContext))
+                }
+
+                "openAccessibilitySettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Gagal membuka pengaturan aksesibilitas: ${e.message}")
+                        result.success(false)
+                    }
+                }
+
+                "startDownloadMonitor" -> {
+                    DownloadMonitor.start(applicationContext)
+                    result.success(true)
+                }
+
+                "stopDownloadMonitor" -> {
+                    DownloadMonitor.stop()
+                    result.success(true)
+                }
+
+                "isDownloadMonitorActive" -> {
+                    result.success(DownloadMonitor.isMonitoring())
+                }
+
+                "scanInstalledAppNow" -> {
+                    val pkgToScan = call.argument<String>("packageName") ?: ""
+                    if (pkgToScan.isBlank()) {
+                        result.error("INVALID_PACKAGE", "Nama paket tidak boleh kosong", null)
+                        return@setMethodCallHandler
+                    }
+                    thread {
+                        try {
+                            val threats = KasperskySdkManager.scanInstalledApp(applicationContext, pkgToScan)
+                            uiThreadHandler.post {
+                                result.success(
+                                    mapOf(
+                                        "packageName" to pkgToScan,
+                                        "threatCount" to threats.size,
+                                        "isSafe" to threats.isEmpty(),
+                                        "threats" to threats.map { it.virusName ?: "Unknown Threat" }
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            uiThreadHandler.post {
+                                result.error("SCAN_APP_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
+                "requestNotificationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        requestPermissions(
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            NOTIFICATION_REQ_CODE
+                        )
+                    } else {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        }
+                        startActivity(intent)
+                    }
+                    result.success(true)
+                }
+
+                "requestBatteryOptimization" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        try {
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:$packageName")
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            try {
+                                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                result.success(true)
+                            } catch (_: Exception) {
+                                result.success(false)
+                            }
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
+
+                "testPhishingDetection" -> {
+                    val testUrl = call.argument<String>("url") ?: "https://secure-login-account-update.xyz/phishing"
+                    val reason = call.argument<String>("reason") ?: "Phishing / Fake Banking Portal"
+                    ScanForegroundService.postPhishingAlert(appCtx, testUrl, reason)
+                    result.success(
+                        mapOf(
+                            "blocked" to true,
+                            "url" to testUrl,
+                            "reason" to reason
+                        )
+                    )
                 }
 
                 "startEasyScan" -> {
@@ -454,6 +591,27 @@ class MainActivity : FlutterActivity() {
                             val totalObjectsScanned = if (rawObjectsScanned > 0) rawObjectsScanned else objectsCounter.get()
                             val malwareCount = malwareList.size + riskwareList.size
                             val allThreatNames = (malwareList + riskwareList).map { it.virusName ?: "Unknown Threat" }
+                            val allThreatsList = mutableListOf<Map<String, Any?>>()
+                            var tEasyIdx = 0
+                            for (t in (malwareList + riskwareList)) {
+                                tEasyIdx++
+                                val tId = "threat_easy_${System.currentTimeMillis()}_$tEasyIdx"
+                                detectedThreatsStore[tId] = t
+                                val filePath = try { t.fileFullPath ?: "" } catch (_: Exception) { "" }
+                                val objName = try { t.objectName ?: "" } catch (_: Exception) { "" }
+                                val pkgName = try { t.packageName ?: "" } catch (_: Exception) { "" }
+                                val isApp = try { t.isApplication || pkgName.isNotBlank() } catch (_: Exception) { false }
+                                val sev = try { t.severityLevel?.name ?: "High" } catch (_: Exception) { "High" }
+                                allThreatsList.add(mapOf(
+                                    "id" to tId,
+                                    "virusName" to (t.virusName ?: "Unknown Threat"),
+                                    "filePath" to filePath,
+                                    "objectName" to objName,
+                                    "packageName" to pkgName,
+                                    "isApplication" to isApp,
+                                    "severity" to sev
+                                ))
+                            }
                             val hasThreat = malwareCount > 0 || isRooted
                             val totalElapsedSec = ((System.currentTimeMillis() - startTimeMs) / 1000L).coerceAtLeast(1L)
 
@@ -495,6 +653,7 @@ class MainActivity : FlutterActivity() {
                                 "objectsScanned" to totalObjectsScanned,
                                 "elapsedSeconds" to totalElapsedSec,
                                 "malwareList" to allThreatNames,
+                                "threats" to allThreatsList,
                                 "scanMode" to modeArg
                             )
 
@@ -623,6 +782,7 @@ class MainActivity : FlutterActivity() {
                             val topFilesCounter = AtomicInteger(0)
                             val objectsCounter = AtomicInteger(0)
                             val threats = java.util.Collections.synchronizedList(mutableListOf<String>())
+                            val folderThreatDetails = java.util.Collections.synchronizedList(mutableListOf<Map<String, Any?>>())
                             var smoothedEtaSec = -1.0
                             var lastUiEmitMs = 0L
 
@@ -704,6 +864,17 @@ class MainActivity : FlutterActivity() {
                                     try { info.release() } catch (_: Exception) {}
                                     val virusName = threatInfo.virusName ?: "Unknown Malware"
                                     threats.add(virusName)
+                                    val tId = "threat_folder_${System.currentTimeMillis()}_${folderThreatDetails.size + 1}"
+                                    detectedThreatsStore[tId] = threatInfo
+                                    folderThreatDetails.add(mapOf(
+                                        "id" to tId,
+                                        "virusName" to virusName,
+                                        "filePath" to fullPath,
+                                        "objectName" to objName,
+                                        "packageName" to pkgName,
+                                        "isApplication" to (threatInfo.isApplication || pkgName.isNotBlank()),
+                                        "severity" to (try { threatInfo.severityLevel?.name ?: "High" } catch (_: Exception) { "High" })
+                                    ))
                                     val targetLabel = shortTargetName(pkgName, objName, fullPath, objectsCounter.get())
                                     emitToFlutter(
                                         "onScanProgress",
@@ -729,6 +900,17 @@ class MainActivity : FlutterActivity() {
                                     try { info.release() } catch (_: Exception) {}
                                     val virusName = threatInfo.virusName ?: "Unknown Suspicious"
                                     threats.add(virusName)
+                                    val tId = "threat_folder_${System.currentTimeMillis()}_${folderThreatDetails.size + 1}"
+                                    detectedThreatsStore[tId] = threatInfo
+                                    folderThreatDetails.add(mapOf(
+                                        "id" to tId,
+                                        "virusName" to virusName,
+                                        "filePath" to fullPath,
+                                        "objectName" to objName,
+                                        "packageName" to pkgName,
+                                        "isApplication" to (threatInfo.isApplication || pkgName.isNotBlank()),
+                                        "severity" to (try { threatInfo.severityLevel?.name ?: "High" } catch (_: Exception) { "Medium" })
+                                    ))
                                     val targetLabel = shortTargetName(pkgName, objName, fullPath, objectsCounter.get())
                                     emitToFlutter(
                                         "onScanProgress",
@@ -789,7 +971,8 @@ class MainActivity : FlutterActivity() {
                                 "objectsScanned" to totalObjects,
                                 "elapsedSeconds" to totalElapsedSec,
                                 "malwareCount" to threatList.size,
-                                "malwareList" to threatList
+                                "malwareList" to threatList,
+                                "threats" to folderThreatDetails.toList()
                             )
 
                             currentScanInfo = null
@@ -1200,6 +1383,232 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                "quarantineThreat" -> {
+                    val threatId = call.argument<String>("id") ?: ""
+                    val filePath = call.argument<String>("filePath") ?: ""
+                    thread {
+                        try {
+                            val threatInfo = detectedThreatsStore[threatId]
+                            var quarantined = false
+                            var errDetail: String? = null
+
+                            if (antivirusComponent != null && threatInfo != null) {
+                                try {
+                                    antivirusComponent!!.addToQuarantine(threatInfo)
+                                    quarantined = true
+                                } catch (qe: Exception) {
+                                    Log.w(TAG, "addToQuarantine threw: ${qe.message}")
+                                    errDetail = qe.message
+                                }
+                            }
+
+                            if (!quarantined) {
+                                val targetPath = if (filePath.isNotBlank()) filePath else (threatInfo?.fileFullPath ?: "")
+                                if (targetPath.isNotBlank()) {
+                                    val f = File(targetPath)
+                                    if (f.exists() && f.isFile) {
+                                        val qDir = File(appCtx.filesDir, "quarantine").apply { mkdirs() }
+                                        val dest = File(qDir, "${f.name}.quarantined_${System.currentTimeMillis()}")
+                                        f.copyTo(dest, overwrite = true)
+                                        f.delete()
+                                        dest.setReadable(false, false)
+                                        dest.setExecutable(false, false)
+                                        quarantined = true
+                                    }
+                                }
+                            }
+
+                            uiThreadHandler.post {
+                                if (quarantined) {
+                                    result.success(mapOf(
+                                        "success" to true,
+                                        "id" to threatId,
+                                        "message" to "Berkas berhasil dikarantina dan diisolasi dengan aman."
+                                    ))
+                                } else {
+                                    result.success(mapOf(
+                                        "success" to false,
+                                        "id" to threatId,
+                                        "message" to (errDetail ?: "Gagal mengkarantina berkas.")
+                                    ))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "quarantineThreat error: ${e.message}", e)
+                            uiThreadHandler.post {
+                                result.error("QUARANTINE_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
+                "deleteThreat" -> {
+                    val threatId = call.argument<String>("id") ?: ""
+                    val filePath = call.argument<String>("filePath") ?: ""
+                    val pkgName = call.argument<String>("packageName") ?: ""
+                    thread {
+                        try {
+                            val threatInfo = detectedThreatsStore[threatId]
+                            val resolvedPkg = if (pkgName.isNotBlank()) pkgName else (threatInfo?.packageName ?: "")
+                            val resolvedPath = if (filePath.isNotBlank()) filePath else (threatInfo?.fileFullPath ?: "")
+                            val isApp = (threatInfo?.isApplication == true) || resolvedPkg.isNotBlank()
+
+                            var isDone = false
+                            var msg = ""
+
+                            if (isApp && resolvedPkg.isNotBlank()) {
+                                if (antivirusComponent != null && threatInfo != null) {
+                                    try {
+                                        antivirusComponent!!.removeThreat(threatInfo)
+                                    } catch (_: Exception) {}
+                                }
+                                val uninstallIntent = Intent(Intent.ACTION_DELETE).apply {
+                                    data = Uri.parse("package:$resolvedPkg")
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                appCtx.startActivity(uninstallIntent)
+                                isDone = true
+                                msg = "Membuka dialog pencopotan aplikasi berbahaya ($resolvedPkg)."
+                            } else {
+                                if (antivirusComponent != null && threatInfo != null) {
+                                    try {
+                                        isDone = antivirusComponent!!.removeThreat(threatInfo)
+                                    } catch (_: Exception) {}
+                                }
+                                if (!isDone && resolvedPath.isNotBlank()) {
+                                    val f = File(resolvedPath)
+                                    if (f.exists()) {
+                                        isDone = f.delete()
+                                    }
+                                }
+                                msg = if (isDone) "Berkas berbahaya berhasil dihapus secara permanen." else "Gagal menghapus berkas."
+                            }
+
+                            uiThreadHandler.post {
+                                result.success(mapOf(
+                                    "success" to isDone,
+                                    "id" to threatId,
+                                    "isApp" to isApp,
+                                    "message" to msg
+                                ))
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "deleteThreat error: ${e.message}", e)
+                            uiThreadHandler.post {
+                                result.error("DELETE_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
+                "getQuarantineList" -> {
+                    thread {
+                        try {
+                            val list = mutableListOf<Map<String, Any?>>()
+                            if (antivirusComponent != null) {
+                                try {
+                                    val sdkItems = antivirusComponent!!.getQuarantineItems(0, 50)
+                                    for (item in sdkItems) {
+                                        list.add(mapOf(
+                                            "quarantineName" to (item.mQuarantineName ?: ""),
+                                            "fileName" to (item.mFileName ?: "Unknown"),
+                                            "filePath" to (item.mFilePath ?: ""),
+                                            "virusName" to (item.mVirusName ?: "Threat"),
+                                            "dateStr" to (item.mCatchDateStr ?: ""),
+                                            "date" to item.mCatchDate,
+                                            "source" to "Kaspersky SDK"
+                                        ))
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "getQuarantineItems SDK error: ${e.message}")
+                                }
+                            }
+                            val qDir = File(appCtx.filesDir, "quarantine")
+                            if (qDir.exists()) {
+                                qDir.listFiles()?.forEach { f ->
+                                    val cleanName = f.name.substringBefore(".quarantined_")
+                                    list.add(mapOf(
+                                        "quarantineName" to f.name,
+                                        "fileName" to cleanName,
+                                        "filePath" to f.absolutePath,
+                                        "virusName" to "Terkarantina (Isolasi DeFort)",
+                                        "dateStr" to SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(f.lastModified())),
+                                        "date" to f.lastModified(),
+                                        "source" to "DeFort Vault"
+                                    ))
+                                }
+                            }
+                            uiThreadHandler.post {
+                                result.success(list)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "getQuarantineList error: ${e.message}", e)
+                            uiThreadHandler.post {
+                                result.error("QUARANTINE_LIST_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
+                "restoreQuarantineItem" -> {
+                    val qName = call.argument<String>("quarantineName") ?: ""
+                    val targetPath = call.argument<String>("targetPath") ?: ""
+                    thread {
+                        try {
+                            var restored = false
+                            if (antivirusComponent != null && qName.isNotBlank()) {
+                                try {
+                                    antivirusComponent!!.restoreFromQuarantine(qName)
+                                    restored = true
+                                } catch (_: Exception) {}
+                            }
+                            if (!restored) {
+                                val qFile = File(File(appCtx.filesDir, "quarantine"), qName)
+                                if (qFile.exists()) {
+                                    val dest = if (targetPath.isNotBlank()) File(targetPath) else File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), qFile.name.substringBefore(".quarantined_"))
+                                    qFile.setReadable(true, false)
+                                    qFile.copyTo(dest, overwrite = true)
+                                    qFile.delete()
+                                    restored = true
+                                }
+                            }
+                            uiThreadHandler.post {
+                                result.success(restored)
+                            }
+                        } catch (e: Exception) {
+                            uiThreadHandler.post {
+                                result.error("RESTORE_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
+                "deleteQuarantineItem" -> {
+                    val qName = call.argument<String>("quarantineName") ?: ""
+                    thread {
+                        try {
+                            var deleted = false
+                            if (antivirusComponent != null && qName.isNotBlank()) {
+                                try {
+                                    antivirusComponent!!.removeFromQuarantine(qName)
+                                    deleted = true
+                                } catch (_: Exception) {}
+                            }
+                            val qFile = File(File(appCtx.filesDir, "quarantine"), qName)
+                            if (qFile.exists()) {
+                                deleted = qFile.delete() || deleted
+                            }
+                            uiThreadHandler.post {
+                                result.success(deleted)
+                            }
+                        } catch (e: Exception) {
+                            uiThreadHandler.post {
+                                result.error("DELETE_QUARANTINE_ERROR", e.message, null)
+                            }
+                        }
+                    }
+                }
+
                 else -> {
                     result.notImplemented()
                 }
@@ -1562,6 +1971,19 @@ class MainActivity : FlutterActivity() {
                 }
                 Log.i(TAG, "Antivirus initialized successfully, isInitialized=${antivirusComponent?.isInitialized()}")
                 sdkInitError = null
+
+                // Sinkronisasikan dengan KasperskySdkManager singleton
+                KasperskySdkManager.initSafe(appCtx)
+                if (antivirusComponent == null) {
+                    antivirusComponent = KasperskySdkManager.getAntivirus(appCtx)
+                }
+
+                // Jalankan Background Download Watcher jika proteksi aktif
+                val prefs = appCtx.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                val isBgActive = prefs.getBoolean("flutter.backgroundProtectionEnabled", true)
+                if (isBgActive) {
+                    DownloadMonitor.start(appCtx)
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Antivirus init failed: ${e.message}", e)
                 sdkInitError = "Lisensi tidak valid. Pastikan perangkat terhubung ke internet untuk aktivasi lisensi SDK."

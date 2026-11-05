@@ -24,6 +24,7 @@ class ScanForegroundService : Service() {
 
         private const val CHANNEL_PROGRESS_ID = "defort_scan_progress"
         private const val CHANNEL_RESULT_ID = "defort_scan_result"
+        const val CHANNEL_PHISHING_ID = "defort_phishing_alert"
 
         private const val NOTIF_ID_PROGRESS = 9001
         private val resultNotifCounter = AtomicInteger(9100)
@@ -188,6 +189,59 @@ class ScanForegroundService : Service() {
 
             nm.createNotificationChannel(progressChannel)
             nm.createNotificationChannel(resultChannel)
+
+            val phishingChannel = NotificationChannel(
+                CHANNEL_PHISHING_ID,
+                "Peringatan Phishing & Ancaman Darurat",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Pemberitahuan darurat saat tautan atau situs phishing berbahaya dicegah dan diblokir"
+                enableVibration(true)
+                enableLights(true)
+                lightColor = Color.RED
+            }
+            nm.createNotificationChannel(phishingChannel)
+        }
+
+        fun postPhishingAlert(
+            context: Context,
+            url: String,
+            reason: String = "Situs phishing berbahaya terdeteksi dan diblokir"
+        ) {
+            try {
+                ensureChannels(context)
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val notif = Notification.Builder(context, CHANNEL_PHISHING_ID)
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("⚠️ Tautan Phishing Diblokir!")
+                    .setContentText("DeFort melindungi Anda dari situs berbahaya: $url")
+                    .setStyle(
+                        Notification.BigTextStyle().bigText(
+                            "PERINGATAN KEAMANAN DEFORT:\n" +
+                            "Tautan penipuan/phishing berhasil diblokir secara otomatis di latar belakang.\n\n" +
+                            "• Target: $url\n" +
+                            "• Kategori: $reason\n" +
+                            "• Status: Diamankan oleh Kaspersky WebFilter"
+                        )
+                    )
+                    .setAutoCancel(true)
+                    .setColor(Color.rgb(220, 38, 38))
+                    .setContentIntent(createLaunchPendingIntent(context))
+                    .build()
+
+                nm.notify(resultNotifCounter.incrementAndGet(), notif)
+
+                // Simpan juga ke database SQLite riwayat pemindaian
+                saveHistoryToSqlite(
+                    context,
+                    scanType = "Anti-Phishing Shield",
+                    statusLevel = "Bahaya Dicegah",
+                    summary = "Tautan berbahaya berhasil diblokir: $url",
+                    detailsJson = """{"url":"$url","reason":"$reason","action":"BLOCKED","timestamp":${System.currentTimeMillis()}}"""
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to post phishing alert notification: ${e.message}")
+            }
         }
 
         private fun createLaunchPendingIntent(context: Context): PendingIntent {

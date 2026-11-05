@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../../../core/database_helper.dart';
 import '../../../core/scan_history_item.dart';
 import '../../../core/localization.dart';
+import 'quarantine_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -51,6 +52,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.packageCheck),
+            tooltip: 'Ruang Karantina',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const QuarantineScreen()));
+            },
+          ),
           if (_historyItems.isNotEmpty)
             IconButton(
               icon: const Icon(LucideIcons.trash2),

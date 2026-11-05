@@ -8,6 +8,7 @@ import '../../../core/url_analyzer.dart';
 import '../../../core/database_helper.dart';
 import '../../../core/scan_history_item.dart';
 import '../screens/history_screen.dart';
+import '../screens/permissions_screen.dart';
 
 class IdentityTab extends StatefulWidget {
   const IdentityTab({super.key});
@@ -344,6 +345,17 @@ class _IdentityTabState extends State<IdentityTab> {
                   value: _isFakeAppMonitorActive, 
                   onChanged: _toggleFakeAppMonitor
                 ),
+                const SizedBox(height: 12),
+                _buildActionCard(
+                  context,
+                  icon: LucideIcons.shieldCheck,
+                  color: isDark ? Colors.tealAccent : Colors.teal,
+                  title: 'Perizinan & Layanan Aksesibilitas',
+                  subtitle: 'Atur izin file, auto-scan unduhan, dan pelindung phishing latar belakang',
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+                  },
+                ),
               ],
             ),
           )
@@ -383,6 +395,47 @@ class _IdentityTabState extends State<IdentityTab> {
           )
         ],
       )
+    );
+  }
+
+  Widget _buildActionCard(
+    BuildContext context, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final subTextColor = isDark ? Colors.white70 : Colors.black54;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: _buildGlassCard(
+        context,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(16)),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                  const SizedBox(height: 2),
+                  Text(AppLoc.tr(context, subtitle), style: TextStyle(color: subTextColor, fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: subTextColor, size: 20),
+          ],
+        ),
+      ),
     );
   }
 

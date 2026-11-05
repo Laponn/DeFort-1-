@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">defort</string>
+    <string name="accessibility_service_label">DeFort Anti-Phishing Shield</string>
+    <string name="accessibility_service_description">Memantau tautan (URL) di peramban secara real-time untuk mendeteksi dan secara otomatis memblokir situs phishing serta tautan berbahaya demi melindungi akun dan data sensitif Anda.</string>
+</resources>
+
