@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/localization.dart';
+import '../../../core/auth_service.dart';
 import '../screens/account_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/quarantine_screen.dart';
@@ -353,6 +354,7 @@ class MenuTab extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () async {
+                    await AuthService().logout();
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setBool('isLoggedIn', false);
 

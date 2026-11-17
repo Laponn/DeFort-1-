@@ -64,6 +64,8 @@ class AppState extends ChangeNotifier {
   bool backgroundProtectionEnabled = true;
   bool realTimePhishingProtection = true;
 
+  void reloadFromPrefs() => _loadFromPrefs();
+
   void _loadFromPrefs() {
     userName = prefs.getString('userName') ?? 'User Simulator';
     userEmail = prefs.getString('userEmail') ?? 'user.simulator@example.com';

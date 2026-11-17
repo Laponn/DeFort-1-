@@ -226,7 +226,12 @@ class AppLoc {
     // Auth Screens
     'Selamat Datang Kembali': {'en': 'Welcome Back', 'id': 'Selamat Datang Kembali'},
     'Masuk untuk mengelola keamanan perangkat Anda.': {'en': 'Sign in to manage your device security.', 'id': 'Masuk untuk mengelola keamanan perangkat Anda.'},
+    'Nama Lengkap': {'en': 'Full Name', 'id': 'Nama Lengkap'},
+    'Alamat Email': {'en': 'Email Address', 'id': 'Alamat Email'},
+    'Nomor Telepon (Opsional)': {'en': 'Phone Number (Optional)', 'id': 'Nomor Telepon (Opsional)'},
     'Kata Sandi': {'en': 'Password', 'id': 'Kata Sandi'},
+    'Konfirmasi Kata Sandi': {'en': 'Confirm Password', 'id': 'Konfirmasi Kata Sandi'},
+    'Minimal 6 karakter': {'en': 'At least 6 characters', 'id': 'Minimal 6 karakter'},
     'Lupa Kata Sandi?': {'en': 'Forgot Password?', 'id': 'Lupa Kata Sandi?'},
     'Masuk': {'en': 'Sign In', 'id': 'Masuk'},
     'Belum punya akun? ': {'en': 'Don\'t have an account? ', 'id': 'Belum punya akun? '},
@@ -234,6 +239,8 @@ class AppLoc {
     'Buat Akun Baru': {'en': 'Create New Account', 'id': 'Buat Akun Baru'},
     'Daftar sekarang untuk perlindungan penuh.': {'en': 'Register now for full protection.', 'id': 'Daftar sekarang untuk perlindungan penuh.'},
     'Daftar': {'en': 'Register', 'id': 'Daftar'},
+    'Sudah punya akun? ': {'en': 'Already have an account? ', 'id': 'Sudah punya akun? '},
+    'Masuk Sekarang': {'en': 'Sign In Now', 'id': 'Masuk Sekarang'},
   };
 
   static String tr(BuildContext context, String key, {bool listen = true}) {

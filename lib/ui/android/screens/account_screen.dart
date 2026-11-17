@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../../../main.dart';
 import '../../../core/localization.dart';
+import '../../../core/auth_service.dart';
 import 'login_screen.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -369,6 +370,7 @@ class AccountScreen extends StatelessWidget {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
+                          await AuthService().logout();
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool('isLoggedIn', false);
 
