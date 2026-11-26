@@ -10,6 +10,9 @@ import '../screens/account_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/quarantine_screen.dart';
 import '../screens/permissions_screen.dart';
+import '../screens/license_screen.dart';
+import '../screens/help_center_screen.dart';
+import '../screens/about_screen.dart';
 
 class MenuTab extends StatelessWidget {
   const MenuTab({super.key});
@@ -46,7 +49,7 @@ class MenuTab extends StatelessWidget {
                           Divider(color: textColor.withOpacity(0.1), height: 24),
                           _buildMenuTile(context, LucideIcons.crown, 'DeFort Premium', appState.isPremium ? 'Status: Aktif' : 'Tingkatkan untuk perlindungan ekstra', isPremium: true),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
-                          _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027'),
+                          _buildMenuTile(context, LucideIcons.shieldCheck, 'Lisensi Kaspersky', 'Aktif hingga 2027', isLicense: true),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
                           _buildMenuTile(context, LucideIcons.settings, 'Preferensi', 'Bahasa, Tema, Notifikasi', isPreferences: true),
                           Divider(color: textColor.withOpacity(0.1), height: 24),
@@ -61,9 +64,9 @@ class MenuTab extends StatelessWidget {
                   context,
                   child: Column(
                     children: [
-                      _buildMenuTile(context, LucideIcons.helpCircle, 'Pusat Bantuan', 'FAQ dan dukungan pelanggan'),
+                      _buildMenuTile(context, LucideIcons.helpCircle, 'Pusat Bantuan', 'FAQ dan dukungan pelanggan', isHelpCenter: true),
                       Divider(color: textColor.withOpacity(0.1), height: 24),
-                      _buildMenuTile(context, LucideIcons.info, 'Tentang DeFort', 'Versi 1.0.0 (Powered by Kaspersky)'),
+                      _buildMenuTile(context, LucideIcons.info, 'Tentang DeFort', 'Versi 1.0.0 (Powered by Kaspersky)', isAbout: true),
                     ],
                   ),
                 ),
@@ -322,7 +325,21 @@ class MenuTab extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuTile(BuildContext context, IconData icon, String title, String subtitle, {bool isDestructive = false, bool isPreferences = false, bool isAccount = false, bool isPremium = false, bool isQuarantine = false, bool isPermissions = false}) {
+  Widget _buildMenuTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle, {
+    bool isDestructive = false,
+    bool isPreferences = false,
+    bool isAccount = false,
+    bool isPremium = false,
+    bool isQuarantine = false,
+    bool isPermissions = false,
+    bool isLicense = false,
+    bool isHelpCenter = false,
+    bool isAbout = false,
+  }) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final subTextColor = isDark ? Colors.white70 : Colors.black54;
@@ -335,10 +352,16 @@ class MenuTab extends StatelessWidget {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const QuarantineScreen()));
         } else if (isPermissions) {
           Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()));
+        } else if (isLicense) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const KasperskyLicenseScreen()));
+        } else if (isHelpCenter) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const HelpCenterScreen()));
+        } else if (isAbout) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const AboutDeFortScreen()));
         } else if (isPreferences) {
-           _showPreferencesSheet(context);
+          _showPreferencesSheet(context);
         } else if (isPremium) {
-           _showPremiumSheet(context);
+          _showPremiumSheet(context);
         } else if (isDestructive) {
           showDialog(
             context: context,
@@ -368,71 +391,6 @@ class MenuTab extends StatelessWidget {
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                   child: Text(AppLoc.tr(context, 'Keluar')),
-                )
-              ],
-            )
-          );
-        } else if (title == 'Tentang DeFort') {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.asset('assets/logos/app_logo.png', width: 72, height: 72, fit: BoxFit.cover),
-                  ),
-                  const SizedBox(height: 16),
-                  Text('DeFort Antivirus', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: textColor)),
-                  const SizedBox(height: 4),
-                  Text('Versi 1.0.0 (Build 2026)', style: TextStyle(fontSize: 13, color: textColor.withOpacity(0.6))),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Perlindungan malware dan keamanan siber mobile mutakhir yang ditenagai oleh mesin Kaspersky Mobile Security SDK.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: textColor.withOpacity(0.8), height: 1.4),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text('Kaspersky SDK Engine 5.23', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(AppLoc.tr(context, 'Tutup'), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigoAccent)),
-                )
-              ],
-            ),
-          );
-        } else {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              backgroundColor: isDark ? Colors.grey[900] : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Row(
-                children: [
-                  Icon(icon, color: Colors.indigo),
-                  const SizedBox(width: 8),
-                  Text(AppLoc.tr(context, title), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: textColor)),
-                ],
-              ),
-              content: Text(AppLoc.tr(context, 'Anda telah membuka menu ') + AppLoc.tr(context, title) + AppLoc.tr(context, '. Halaman ini masih dalam tahap purwarupa.'), style: TextStyle(color: textColor)),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(AppLoc.tr(context, 'Tutup'), style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
                 )
               ],
             )

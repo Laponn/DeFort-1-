@@ -450,4 +450,42 @@ class KasperskyChannel {
     } catch (_) {}
     return {'blocked': true, 'url': url, 'reason': reason};
   }
+
+  /// Ambil informasi detail lisensi & basis data virus Kaspersky SDK secara real-time
+  static Future<Map<String, dynamic>> getKasperskyLicenseInfo() async {
+    try {
+      final res = await _channel.invokeMethod('getKasperskyLicenseInfo');
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {
+      'isSdkInitialized': false,
+      'isLicenseValid': false,
+      'expireDateMs': 0,
+      'sdkVersion': '5.23.0.212',
+      'sdkName': 'Kaspersky Mobile Security SDK',
+      'installationId': '-',
+      'maskedKey': 'ZCY92-*****-*****-6TAMN',
+      'cloudCheckAvailable': false,
+      'virusDbAvailable': false,
+      'virusDbDate': '-',
+      'virusDbRecords': 0,
+      'knownThreatsCount': 0,
+      'virusDbSizeBytes': 0,
+    };
+  }
+
+  /// Verifikasi ulang & re-aktivasi lisensi Kaspersky SDK
+  static Future<Map<String, dynamic>> verifyKasperskyLicense() async {
+    try {
+      final res = await _channel.invokeMethod('verifyKasperskyLicense');
+      if (res is Map) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {'success': false, 'isLicenseValid': false, 'error': e.toString()};
+    }
+    return {'success': false, 'isLicenseValid': false};
+  }
 }

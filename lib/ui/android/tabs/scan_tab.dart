@@ -93,11 +93,7 @@ class _ScanTabState extends State<ScanTab> {
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_logScrollController.hasClients) {
-        _logScrollController.animateTo(
-          _logScrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 150),
-          curve: Curves.easeOut,
-        );
+        _logScrollController.jumpTo(_logScrollController.position.maxScrollExtent);
       }
     });
   }
@@ -437,7 +433,7 @@ class _ScanTabState extends State<ScanTab> {
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
                           color: accentColor,
-                          value: _scanPercent > 0 ? (_scanPercent / 100.0) : null,
+                          value: _totalFilesCount > 0 ? (_scanPercent / 100.0).clamp(0.0, 1.0) : null,
                         ),
                       )
                     else
@@ -487,7 +483,7 @@ class _ScanTabState extends State<ScanTab> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               minHeight: 8,
-              value: _scanPercent > 0 ? (_scanPercent / 100.0).clamp(0.0, 1.0) : null,
+              value: _totalFilesCount > 0 ? (_scanPercent / 100.0).clamp(0.0, 1.0) : null,
               backgroundColor: isDark ? Colors.white12 : Colors.black12,
               valueColor: AlwaysStoppedAnimation<Color>(accentColor),
             ),

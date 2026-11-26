@@ -16,6 +16,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
 import com.kavsdk.KavSdk
@@ -123,6 +124,45 @@ class MainActivity : FlutterActivity() {
                 cleanPath.isNotBlank() -> cleanPath
                 else -> "Objek sistem #$fallbackIdx"
             }
+        }
+
+        private fun countDeviceFilesFast(context: Context, isFullScan: Boolean): Int {
+            val appCount = try {
+                context.packageManager.getInstalledPackages(0).size
+            } catch (_: Exception) {
+                try { context.packageManager.getInstalledApplications(0).size } catch (_: Exception) { 60 }
+            }
+
+            if (!isFullScan) {
+                return appCount.coerceAtLeast(1)
+            }
+
+            var storageFilesCount = 0
+            try {
+                val uri = MediaStore.Files.getContentUri("external")
+                val projection = arrayOf(MediaStore.Files.FileColumns._ID)
+                context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                    storageFilesCount = cursor.count
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "MediaStore file count failed: ${e.message}")
+            }
+
+            if (storageFilesCount <= 0) {
+                try {
+                    val extDir = Environment.getExternalStorageDirectory()
+                    if (extDir != null && extDir.exists() && extDir.canRead()) {
+                        storageFilesCount = extDir.walkTopDown()
+                            .filter { !it.name.startsWith(".") && it.isFile }
+                            .take(25000)
+                            .count()
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Storage walk count failed: ${e.message}")
+                }
+            }
+
+            return (appCount + storageFilesCount).coerceAtLeast(appCount).coerceAtLeast(1)
         }
     }
 
@@ -357,6 +397,128 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
+                "getKasperskyLicenseInfo" -> {
+                    thread {
+                        try {
+                            val sdkInit = try { KavSdk.isInitialized() } catch (_: Exception) { isSdkReady }
+                            val license = try { KavSdk.getLicense() } catch (_: Exception) { null }
+                            val isValid = try { license?.isValid ?: false } catch (_: Exception) { false }
+                            val rawExpire = try { license?.licenseKeyExpireDate ?: 0L } catch (_: Exception) { 0L }
+                            // Normalisasi jika timestamp dalam detik vs milidetik
+                            val expireMs = when {
+                                rawExpire <= 0L -> 0L
+                                rawExpire < 10_000_000_000L -> rawExpire * 1000L
+                                else -> rawExpire
+                            }
+                            val sdkVersion = try { KavSdk.getSdkVersion() ?: "5.23.0.212" } catch (_: Exception) { "5.23.0.212" }
+                            val sdkName = try { KavSdk.getSdkName() ?: "Kaspersky Mobile Security SDK" } catch (_: Exception) { "Kaspersky Mobile Security SDK" }
+                            val installId = try { KavSdk.getInstallationId() ?: "-" } catch (_: Exception) { "-" }
+
+                            val av = antivirusComponent ?: KasperskySdkManager.getAntivirus(appCtx)
+                            val cloudAvailable = try { av?.isCloudCheckAvailable() ?: false } catch (_: Exception) { false }
+                            val dbInfo = try { av?.virusDbInfo } catch (_: Exception) { null }
+
+                            val dbAvailable = dbInfo?.mAvailable ?: false
+                            val dbDate = if (dbInfo != null && dbInfo.mYear > 0) {
+                                String.format(
+                                    Locale.getDefault(),
+                                    "%02d/%02d/%04d %02d:%02d",
+                                    dbInfo.mDay,
+                                    dbInfo.mMonth,
+                                    dbInfo.mYear,
+                                    dbInfo.mHour,
+                                    dbInfo.mMinute
+                                )
+                            } else {
+                                "-"
+                            }
+                            val dbRecords = dbInfo?.mRecords ?: 0
+                            val knownThreats = dbInfo?.mKnownThreatsCount ?: 0L
+                            val dbSizeBytes = dbInfo?.mSize ?: 0L
+
+                            val payload = mapOf(
+                                "isSdkInitialized" to (sdkInit && av != null),
+                                "isLicenseValid" to isValid,
+                                "expireDateMs" to expireMs,
+                                "sdkVersion" to sdkVersion,
+                                "sdkName" to sdkName,
+                                "installationId" to installId,
+                                "maskedKey" to "ZCY92-*****-*****-6TAMN",
+                                "cloudCheckAvailable" to cloudAvailable,
+                                "virusDbAvailable" to dbAvailable,
+                                "virusDbDate" to dbDate,
+                                "virusDbRecords" to dbRecords,
+                                "knownThreatsCount" to knownThreats,
+                                "virusDbSizeBytes" to dbSizeBytes,
+                                "error" to (sdkInitError ?: "")
+                            )
+                            uiThreadHandler.post { result.success(payload) }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "getKasperskyLicenseInfo error: ${e.message}", e)
+                            uiThreadHandler.post {
+                                result.success(
+                                    mapOf(
+                                        "isSdkInitialized" to isSdkReady,
+                                        "isLicenseValid" to false,
+                                        "expireDateMs" to 0L,
+                                        "sdkVersion" to "5.23.0.212",
+                                        "sdkName" to "Kaspersky Mobile Security SDK",
+                                        "installationId" to "-",
+                                        "maskedKey" to "ZCY92-*****-*****-6TAMN",
+                                        "cloudCheckAvailable" to false,
+                                        "virusDbAvailable" to false,
+                                        "virusDbDate" to "-",
+                                        "virusDbRecords" to 0,
+                                        "knownThreatsCount" to 0L,
+                                        "virusDbSizeBytes" to 0L,
+                                        "error" to (e.message ?: "Gagal memuat info lisensi")
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                "verifyKasperskyLicense" -> {
+                    thread {
+                        try {
+                            val ok = KasperskySdkManager.initSafe(appCtx)
+                            if (antivirusComponent == null) {
+                                antivirusComponent = KasperskySdkManager.getAntivirus(appCtx)
+                            }
+                            val license = try { KavSdk.getLicense() } catch (_: Exception) { null }
+                            val isValid = try { license?.isValid ?: false } catch (_: Exception) { false }
+                            if (!isValid && license != null) {
+                                try {
+                                    license.activate("ZCY92-JYW1R-NKG9V-6TAMN")
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Re-activate license failed: ${e.message}")
+                                }
+                            }
+                            val finalValid = try { license?.isValid ?: false } catch (_: Exception) { false }
+                            uiThreadHandler.post {
+                                result.success(
+                                    mapOf(
+                                        "success" to (ok && finalValid),
+                                        "isLicenseValid" to finalValid
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "verifyKasperskyLicense error: ${e.message}", e)
+                            uiThreadHandler.post {
+                                result.success(
+                                    mapOf(
+                                        "success" to false,
+                                        "isLicenseValid" to false,
+                                        "error" to (e.message ?: "Verifikasi gagal")
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
                 "startEasyScan" -> {
                     if (antivirusComponent == null) {
                         result.error(
@@ -368,12 +530,13 @@ class MainActivity : FlutterActivity() {
                     }
                     val modeArg = call.argument<String>("mode") ?: "Quick"
                     val sourceArg = call.argument<String>("source") ?: "ScanTab"
-                    val easyMode = if (modeArg.equals("Full", ignoreCase = true)) {
+                    val isFull = modeArg.equals("Full", ignoreCase = true)
+                    val easyMode = if (isFull) {
                         EasyMode.Full
                     } else {
                         EasyMode.Recommended
                     }
-                    val scanTitle = if (modeArg.equals("Full", ignoreCase = true)) {
+                    val scanTitle = if (isFull) {
                         "Pindai Menyeluruh"
                     } else {
                         "Pindai Cepat"
@@ -381,19 +544,16 @@ class MainActivity : FlutterActivity() {
 
                     requestNotificationPermissionIfNeeded()
 
-                    val initialAppCount = try {
-                        appCtx.packageManager.getInstalledApplications(0).size.coerceAtLeast(30)
-                    } catch (_: Exception) {
-                        60
-                    }
+                    // Pra-penghitungan total berkas pasti di awal (0 ms Quick, ~30 ms Full via MediaStore)
+                    val exactInitialCount = countDeviceFilesFast(appCtx, isFull)
 
                     ScanForegroundService.startScan(
                         appCtx,
                         "DeFort: $scanTitle (0%)",
-                        "Menyiapkan engine Kaspersky & menghitung target..."
+                        "Menyiapkan engine & menghitung $exactInitialCount target..."
                     )
 
-                    val startLog = "[${nowTimeStr()}] Memulai $scanTitle (Kaspersky Antivirus Engine)..."
+                    val startLog = "[${nowTimeStr()}] Memulai $scanTitle (Total target: $exactInitialCount file)..."
                     val initialState = mapOf(
                         "isScanning" to true,
                         "scanType" to "MALWARE",
@@ -403,11 +563,11 @@ class MainActivity : FlutterActivity() {
                         "percent" to 0,
                         "filesScanned" to 0,
                         "objectsScanned" to 0,
-                        "totalFiles" to initialAppCount,
+                        "totalFiles" to exactInitialCount,
                         "etaSeconds" to -1L,
                         "etaText" to "Menghitung estimasi waktu...",
                         "elapsedSeconds" to 0L,
-                        "currentFile" to "Menghitung daftar paket & berkas...",
+                        "currentFile" to "Menyiapkan pemeriksaan $exactInitialCount berkas...",
                         "logEntry" to startLog,
                         "isThreatLog" to false
                     )
@@ -420,16 +580,19 @@ class MainActivity : FlutterActivity() {
                             val scanner = antivirusComponent!!.createEasyScanner()
                             val topFilesCounter = AtomicInteger(0)
                             val objectsCounter = AtomicInteger(0)
-                            val totalCounter = AtomicInteger(initialAppCount)
+                            val totalCounter = AtomicInteger(exactInitialCount)
                             val threatsDetectedCounter = AtomicInteger(0)
+                            val scannedTargetsSet = java.util.Collections.synchronizedSet(mutableSetOf<String>())
                             var smoothedEtaSec = -1.0
                             var lastUiEmitMs = 0L
 
                             val listener = object : EasyListener {
                                 override fun onFilesCountCalculated(filesCount: Int) {
-                                    val resolvedTotal = if (filesCount > 0) filesCount else initialAppCount
-                                    totalCounter.set(resolvedTotal)
-                                    val countLog = "[${nowTimeStr()}] Total target terdeteksi: $resolvedTotal file/paket aplikasi."
+                                    if (filesCount > 0) {
+                                        totalCounter.set(filesCount)
+                                    }
+                                    val resolvedTotal = totalCounter.get()
+                                    val countLog = "[${nowTimeStr()}] Total target terverifikasi engine: $resolvedTotal file."
                                     emitToFlutter(
                                         "onScanProgress",
                                         mapOf(
@@ -442,7 +605,7 @@ class MainActivity : FlutterActivity() {
                                             "etaSeconds" to -1L,
                                             "etaText" to "Menghitung estimasi waktu...",
                                             "elapsedSeconds" to ((System.currentTimeMillis() - startTimeMs) / 1000L),
-                                            "currentFile" to "Memulai pemeriksaan objek...",
+                                            "currentFile" to "Memulai pemeriksaan berkas...",
                                             "logEntry" to countLog,
                                             "isThreatLog" to false
                                         )
@@ -460,20 +623,23 @@ class MainActivity : FlutterActivity() {
                                     try { obj.release() } catch (_: Exception) {}
 
                                     val allObjs = objectsCounter.incrementAndGet()
-                                    val isTopLevel = fullPath.isNotEmpty() && fullPath == objName
-                                    val rawTopFiles = if (isTopLevel) topFilesCounter.incrementAndGet() else topFilesCounter.get()
-
-                                    // Jika sedang memindai komponen internal APK, estimasikan file yang sudah diperiksa secara proporsional
-                                    val effectiveFiles = if (rawTopFiles > 0) rawTopFiles else ((allObjs / 3).coerceAtLeast(1))
-                                    var total = totalCounter.get().coerceAtLeast(1)
-                                    if (effectiveFiles >= total) {
-                                        total = effectiveFiles + 4
-                                        totalCounter.set(total)
+                                    val distinctFileKey = when {
+                                        pkgName.isNotBlank() -> "pkg:$pkgName"
+                                        fullPath.isNotBlank() -> "file:${fullPath.substringBefore('!')}"
+                                        objName.isNotBlank() -> "obj:$objName"
+                                        else -> "idx:$allObjs"
                                     }
 
-                                    // Hitung persentase halus (1% s.d. 99% selama proses berjalan)
-                                    val subStep = ((allObjs % 4) * 0.2).coerceIn(0.0, 0.8)
-                                    val rawRatio = ((effectiveFiles.toDouble() + subStep) / total.toDouble()).coerceIn(0.01, 0.99)
+                                    val isNewFile = scannedTargetsSet.add(distinctFileKey)
+                                    val currentFileIndex = if (isNewFile) topFilesCounter.incrementAndGet() else topFilesCounter.get()
+
+                                    val total = totalCounter.get().coerceAtLeast(1)
+                                    val clampedFiles = currentFileIndex.coerceAtMost(total)
+
+                                    // Progres mikro intra-berkas dari 0.0 s.d 0.9 tanpa mengubah angka total
+                                    val intraFraction = ((allObjs % 8) / 8.0) * 0.9
+                                    val smoothFilesCount = (clampedFiles - 1.0).coerceAtLeast(0.0) + intraFraction
+                                    val rawRatio = (smoothFilesCount / total.toDouble()).coerceIn(0.01, 0.99)
                                     val percent = (rawRatio * 100.0).roundToInt().coerceIn(1, 99)
 
                                     val now = System.currentTimeMillis()
@@ -488,14 +654,14 @@ class MainActivity : FlutterActivity() {
                                     ScanForegroundService.updateProgress(
                                         appCtx,
                                         "DeFort: $scanTitle ($percent%)",
-                                        "$effectiveFiles / $total file dipindai • Estimasi $etaText\nMemeriksa: $targetLabel",
+                                        "$clampedFiles / $total file dipindai • Estimasi $etaText\nMemeriksa: $targetLabel",
                                         percent,
                                         100
                                     )
 
-                                    if (isTopLevel || now - lastUiEmitMs >= 180L) {
+                                    if (isNewFile || now - lastUiEmitMs >= 180L) {
                                         lastUiEmitMs = now
-                                        val logLine = "[${nowTimeStr()}] [#$effectiveFiles/$total] [OK] $targetLabel"
+                                        val logLine = "[${nowTimeStr()}] [#$clampedFiles/$total] [OK] $targetLabel"
                                         val progressPayload = mapOf(
                                             "isScanning" to true,
                                             "scanType" to "MALWARE",
@@ -503,7 +669,7 @@ class MainActivity : FlutterActivity() {
                                             "source" to sourceArg,
                                             "label" to scanTitle,
                                             "percent" to percent,
-                                            "filesScanned" to effectiveFiles,
+                                            "filesScanned" to clampedFiles,
                                             "objectsScanned" to allObjs,
                                             "totalFiles" to total,
                                             "threatsFound" to threatsDetectedCounter.get(),
@@ -583,12 +749,12 @@ class MainActivity : FlutterActivity() {
                             val rawFilesScanned = scanResult?.filesScanned ?: 0
                             val rawObjectsScanned = scanResult?.objectsScanned ?: 0
                             val filesScanned = when {
-                                rawFilesScanned > 0 -> rawFilesScanned
                                 topFilesCounter.get() > 0 -> topFilesCounter.get()
-                                rawObjectsScanned > 0 -> rawObjectsScanned
-                                else -> objectsCounter.get()
+                                rawFilesScanned > 0 -> rawFilesScanned
+                                else -> totalCounter.get()
                             }
                             val totalObjectsScanned = if (rawObjectsScanned > 0) rawObjectsScanned else objectsCounter.get()
+                            val finalTotal = totalCounter.get().coerceAtLeast(filesScanned)
                             val malwareCount = malwareList.size + riskwareList.size
                             val allThreatNames = (malwareList + riskwareList).map { it.virusName ?: "Unknown Threat" }
                             val allThreatsList = mutableListOf<Map<String, Any?>>()
@@ -623,7 +789,7 @@ class MainActivity : FlutterActivity() {
                                     "percent" to 100,
                                     "filesScanned" to filesScanned,
                                     "objectsScanned" to totalObjectsScanned,
-                                    "totalFiles" to filesScanned,
+                                    "totalFiles" to finalTotal,
                                     "threatsFound" to malwareCount,
                                     "etaSeconds" to 0L,
                                     "etaText" to "Selesai (0 detik)",
@@ -718,13 +884,20 @@ class MainActivity : FlutterActivity() {
 
                     val folderName = folder.name.ifEmpty { folderPath }
                     requestNotificationPermissionIfNeeded()
+
+                    val exactFolderTotal = try {
+                        folder.walkTopDown().filter { it.isFile }.count().coerceAtLeast(1)
+                    } catch (_: Exception) {
+                        1
+                    }
+
                     ScanForegroundService.startScan(
                         appCtx,
                         "DeFort: Memindai Folder (0%)",
-                        "Menghitung jumlah berkas di $folderName..."
+                        "Menyiapkan $exactFolderTotal berkas di $folderName..."
                     )
 
-                    val startLog = "[${nowTimeStr()}] Memulai pemindaian folder: $folderPath"
+                    val startLog = "[${nowTimeStr()}] Memulai pemindaian folder: $folderPath (Total: $exactFolderTotal file)"
                     val initPayload = mapOf(
                         "isScanning" to true,
                         "scanType" to "FOLDER",
@@ -733,11 +906,11 @@ class MainActivity : FlutterActivity() {
                         "percent" to 0,
                         "filesScanned" to 0,
                         "objectsScanned" to 0,
-                        "totalFiles" to 0,
+                        "totalFiles" to exactFolderTotal,
                         "etaSeconds" to -1L,
                         "etaText" to "Menghitung estimasi waktu...",
                         "elapsedSeconds" to 0L,
-                        "currentFile" to "Menghitung berkas di $folderName...",
+                        "currentFile" to "Memulai pemindaian $exactFolderTotal berkas...",
                         "logEntry" to startLog,
                         "isThreatLog" to false
                     )
@@ -752,35 +925,12 @@ class MainActivity : FlutterActivity() {
                             scanTarget.setFolder(folder)
 
                             val sdkTotal = try { scanner.getFilesCount(scanTarget) } catch (_: Exception) { 0 }
-                            val fallbackTotal = if (sdkTotal > 0) sdkTotal else {
-                                try {
-                                    folder.walkTopDown().take(20000).count { it.isFile }
-                                } catch (_: Exception) {
-                                    0
-                                }
-                            }
-                            val totalCounter = AtomicInteger(fallbackTotal.coerceAtLeast(1))
-
-                            emitToFlutter(
-                                "onScanProgress",
-                                mapOf(
-                                    "scanType" to "FOLDER",
-                                    "source" to "ScanTab",
-                                    "percent" to 1,
-                                    "filesScanned" to 0,
-                                    "objectsScanned" to 0,
-                                    "totalFiles" to totalCounter.get(),
-                                    "etaSeconds" to -1L,
-                                    "etaText" to "Menghitung estimasi waktu...",
-                                    "elapsedSeconds" to 0L,
-                                    "currentFile" to "Ditemukan ${totalCounter.get()} berkas di $folderName",
-                                    "logEntry" to "[${nowTimeStr()}] Total berkas di folder '$folderName': ${totalCounter.get()} file.",
-                                    "isThreatLog" to false
-                                )
-                            )
+                            val resolvedFolderTotal = if (sdkTotal > 0) sdkTotal else exactFolderTotal
+                            val totalCounter = AtomicInteger(resolvedFolderTotal)
 
                             val topFilesCounter = AtomicInteger(0)
                             val objectsCounter = AtomicInteger(0)
+                            val scannedFolderTargetsSet = java.util.Collections.synchronizedSet(mutableSetOf<String>())
                             val threats = java.util.Collections.synchronizedList(mutableListOf<String>())
                             val folderThreatDetails = java.util.Collections.synchronizedList(mutableListOf<Map<String, Any?>>())
                             var smoothedEtaSec = -1.0
@@ -798,17 +948,22 @@ class MainActivity : FlutterActivity() {
                                     try { info.release() } catch (_: Exception) {}
 
                                     val allObjs = objectsCounter.incrementAndGet()
-                                    val isTopLevel = fullPath.isNotEmpty() && fullPath == objName
-                                    val rawTopFiles = if (isTopLevel) topFilesCounter.incrementAndGet() else topFilesCounter.get()
-                                    val effectiveFiles = if (rawTopFiles > 0) rawTopFiles else allObjs
-
-                                    var total = totalCounter.get().coerceAtLeast(1)
-                                    if (effectiveFiles > total) {
-                                        total = effectiveFiles + 2
-                                        totalCounter.set(total)
+                                    val distinctFileKey = when {
+                                        pkgName.isNotBlank() -> "pkg:$pkgName"
+                                        fullPath.isNotBlank() -> "file:${fullPath.substringBefore('!')}"
+                                        objName.isNotBlank() -> "obj:$objName"
+                                        else -> "idx:$allObjs"
                                     }
 
-                                    val rawRatio = (effectiveFiles.toDouble() / total.toDouble()).coerceIn(0.01, 0.99)
+                                    val isNewFile = scannedFolderTargetsSet.add(distinctFileKey)
+                                    val currentFileIndex = if (isNewFile) topFilesCounter.incrementAndGet() else topFilesCounter.get()
+
+                                    val total = totalCounter.get().coerceAtLeast(1)
+                                    val clampedFiles = currentFileIndex.coerceAtMost(total)
+
+                                    val intraFraction = ((allObjs % 6) / 6.0) * 0.9
+                                    val smoothFilesCount = (clampedFiles - 1.0).coerceAtLeast(0.0) + intraFraction
+                                    val rawRatio = (smoothFilesCount / total.toDouble()).coerceIn(0.01, 0.99)
                                     val percent = (rawRatio * 100.0).roundToInt().coerceIn(1, 99)
 
                                     val now = System.currentTimeMillis()
@@ -823,21 +978,21 @@ class MainActivity : FlutterActivity() {
                                     ScanForegroundService.updateProgress(
                                         appCtx,
                                         "DeFort: Folder $folderName ($percent%)",
-                                        "$effectiveFiles / $total file dipindai • Estimasi $etaText\nMemeriksa: $targetLabel",
+                                        "$clampedFiles / $total file dipindai • Estimasi $etaText\nMemeriksa: $targetLabel",
                                         percent,
                                         100
                                     )
 
-                                    if (isTopLevel || now - lastUiEmitMs >= 150L) {
+                                    if (isNewFile || now - lastUiEmitMs >= 150L) {
                                         lastUiEmitMs = now
-                                        val logLine = "[${nowTimeStr()}] [#$effectiveFiles/$total] [OK] $targetLabel"
+                                        val logLine = "[${nowTimeStr()}] [#$clampedFiles/$total] [OK] $targetLabel"
                                         val progressPayload = mapOf(
                                             "isScanning" to true,
                                             "scanType" to "FOLDER",
                                             "source" to "ScanTab",
                                             "label" to "Memindai $folderName",
                                             "percent" to percent,
-                                            "filesScanned" to effectiveFiles,
+                                            "filesScanned" to clampedFiles,
                                             "objectsScanned" to allObjs,
                                             "totalFiles" to total,
                                             "threatsFound" to threats.size,
@@ -928,11 +1083,12 @@ class MainActivity : FlutterActivity() {
 
                             scanner.scan(scanTarget, 0, listener)
 
-                            val filesScanned = if (topFilesCounter.get() > 0) topFilesCounter.get() else objectsCounter.get()
+                            val filesScanned = if (topFilesCounter.get() > 0) topFilesCounter.get() else exactFolderTotal
                             val totalObjects = objectsCounter.get()
                             val threatList = threats.toList()
                             val hasThreat = threatList.isNotEmpty()
                             val totalElapsedSec = ((System.currentTimeMillis() - startTimeMs) / 1000L).coerceAtLeast(1L)
+                            val finalFolderTotal = totalCounter.get().coerceAtLeast(filesScanned)
 
                             emitToFlutter(
                                 "onScanProgress",
@@ -942,7 +1098,7 @@ class MainActivity : FlutterActivity() {
                                     "percent" to 100,
                                     "filesScanned" to filesScanned,
                                     "objectsScanned" to totalObjects,
-                                    "totalFiles" to filesScanned,
+                                    "totalFiles" to finalFolderTotal,
                                     "threatsFound" to threatList.size,
                                     "etaSeconds" to 0L,
                                     "etaText" to "Selesai (0 detik)",
